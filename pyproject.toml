@@ -9,11 +9,16 @@ description = "Build and publish Nim extensions for Python with zero configurati
 readme = "README.md"
 authors = [{ name = "Martin Eastwood", email = "martin.eastwood@gmx.com" }]
 license = { text = "MIT" }
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Build Tools",
 ]
 dependencies = ["tomli >= 1.2.0 ; python_version < '3.11'", "watchdog >= 5.0.0"]
