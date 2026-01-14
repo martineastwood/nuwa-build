@@ -31,7 +31,7 @@ nimble install nimpy
 
 **Requirements**:
 
-- Python 3.7+
+- Python 3.9+
 - Nim compiler (must be installed and available in your PATH)
 - nimpy library (install via `nimble install nimpy`)
 
