@@ -19,14 +19,17 @@ class TestCheckNimInstalled:
     """Tests for Nim compiler detection."""
 
     @patch("shutil.which")
-    def test_nim_found(self, mock_which):
+    @patch("subprocess.run")
+    def test_nim_found(self, mock_run, mock_which):
         """Test when Nim is found in PATH."""
         mock_which.return_value = "/usr/bin/nim"
+        mock_run.return_value = None  # Successful version check
 
         # Should not raise
         check_nim_installed()
 
         mock_which.assert_called_with("nim")
+        mock_run.assert_called_once()
 
     @patch("shutil.which")
     def test_nim_not_found(self, mock_which):
