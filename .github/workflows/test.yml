@@ -44,7 +44,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: 'pip'
+          cache: "pip"
 
       - name: Install dependencies
         run: |
@@ -69,19 +69,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: 'pip'
+          cache: "pip"
 
-      - name: Install Nim (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          choco install nim -y
-          echo "C:\Program Files\Nim" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-
-      - name: Install Nim (Unix)
-        if: runner.os != 'Windows'
-        uses: jiro4989/setup-nim-action@v1
+      - name: Install Nim
+        uses: jiro4989/setup-nim-action@v2
         with:
-          nim-version: '2.0.0'
+          nim-version: "2.0.0"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Verify Nim installation
         run: nim --version
