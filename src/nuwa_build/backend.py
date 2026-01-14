@@ -5,7 +5,7 @@ import shutil
 import subprocess
 import zipfile
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional, Tuple
 
 from .config import load_pyproject_toml, merge_cli_args, parse_nuwa_config
 from .discovery import discover_nim_sources, validate_nim_project
@@ -21,7 +21,7 @@ from .wheel_utils import write_wheel_metadata
 logger = logging.getLogger("nuwa")
 
 
-def _extract_metadata() -> tuple[str, str]:
+def _extract_metadata() -> Tuple[str, str]:
     """Extract project name and version from pyproject.toml.
 
     Returns:
@@ -78,8 +78,8 @@ def _determine_inplace_output(module_name: str, config: dict) -> Path:
 
 
 def _build_nim_command(
-    entry_point: Path, output_path: Path, build_type: str, nim_flags: list, nim_dir: Path
-) -> list[str]:
+    entry_point: Path, output_path: Path, build_type: str, nim_flags: List, nim_dir: Path
+) -> List[str]:
     """Build the Nim compiler command.
 
     Args:

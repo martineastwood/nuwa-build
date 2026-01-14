@@ -2,7 +2,7 @@
 
 import zipfile
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
 
 from .utils import get_wheel_tags
 
@@ -39,7 +39,7 @@ def build_wheel_file(
     wheel_directory: str,
     name: str,
     version: str,
-    files_to_add: dict[str, str],
+    files_to_add: Dict[str, str],
     tag: Optional[str] = None,
 ) -> str:
     """Build a wheel file with the given files.
