@@ -42,33 +42,33 @@ def run_new(args: argparse.Namespace) -> None:
         (path / "tests").mkdir(parents=True, exist_ok=True)
 
         # Write pyproject.toml
-        with open(path / "pyproject.toml", "w") as f:
+        with open(path / "pyproject.toml", "w", encoding="utf-8") as f:
             f.write(PYPROJECT_TOML.format(project_name=name, module_name=module_name))
 
         # Write Nim sources - entry point filename determines Python module name
-        with open(path / "nim" / f"{lib_name}.nim", "w") as f:
+        with open(path / "nim" / f"{lib_name}.nim", "w", encoding="utf-8") as f:
             f.write(LIB_NIM.format(module_name=module_name))
 
-        with open(path / "nim" / "helpers.nim", "w") as f:
+        with open(path / "nim" / "helpers.nim", "w", encoding="utf-8") as f:
             f.write(HELPERS_NIM.format(module_name=module_name))
 
         # Write Python package with __init__.py
-        with open(path / module_name / "__init__.py", "w") as f:
+        with open(path / module_name / "__init__.py", "w", encoding="utf-8") as f:
             f.write(INIT_PY.format(module_name=module_name))
 
         # Write README
-        with open(path / "README.md", "w") as f:
+        with open(path / "README.md", "w", encoding="utf-8") as f:
             f.write(README_MD.format(project_name=name, module_name=module_name))
 
         # Write supporting files
-        with open(path / ".gitignore", "w") as f:
+        with open(path / ".gitignore", "w", encoding="utf-8") as f:
             f.write(GITIGNORE)
 
-        with open(path / "example.py", "w") as f:
+        with open(path / "example.py", "w", encoding="utf-8") as f:
             f.write(EXAMPLE_PY.format(module_name=module_name))
 
         # Write test file
-        with open(path / "tests" / f"test_{module_name}.py", "w") as f:
+        with open(path / "tests" / f"test_{module_name}.py", "w", encoding="utf-8") as f:
             f.write(TEST_PY.format(module_name=module_name))
 
         print(f"✅ Ready! \n   cd {path}\n   nuwa develop\n   python example.py\n   pytest")
