@@ -7,7 +7,7 @@ name = "nuwa-build"
 version = "0.1.0"
 description = "Build and publish Nim extensions for Python with zero configuration."
 readme = "README.md"
-authors = [{ name = "Martin Eastwood", email = "martin@eastwood.io" }]
+authors = [{ name = "Martin Eastwood", email = "martin.eastwood@gmx.com" }]
 license = { text = "MIT" }
 requires-python = ">=3.7"
 classifiers = [
@@ -17,21 +17,11 @@ classifiers = [
     "Programming Language :: Nim",
     "Topic :: Software Development :: Build Tools",
 ]
-dependencies = [
-    "tomli >= 1.2.0 ; python_version < '3.11'",
-    "watchdog >= 3.0.0"
-]
+dependencies = ["tomli >= 1.2.0 ; python_version < '3.11'", "watchdog >= 5.0.0"]
 
 [project.optional-dependencies]
-test = [
-    "pytest >= 7.0.0",
-    "pytest-cov >= 4.0.0",
-]
-dev = [
-    "mypy >= 1.0.0",
-    "ruff >= 0.1.0",
-    "pre-commit >= 3.0.0",
-]
+test = ["pytest >= 7.0.0", "pytest-cov >= 4.0.0"]
+dev = ["mypy >= 1.0.0", "ruff >= 0.1.0", "pre-commit >= 4.0.0"]
 
 [project.scripts]
 # This registers the 'nuwa' command in your terminal
@@ -42,12 +32,12 @@ nuwa = "nuwa_build.cli:main"
 nuwa_build = "nuwa_build.backend"
 
 [tool.setuptools]
-package-dir = {"" = "src"}
+package-dir = { "" = "src" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = "."
 addopts = "-v"
 markers = [
-    "integration: marks tests as integration tests (slow, require Nim compiler)"
+    "integration: marks tests as integration tests (slow, require Nim compiler)",
 ]

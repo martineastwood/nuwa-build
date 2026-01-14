@@ -85,7 +85,7 @@ Then create a pull request on GitHub.
 
 ## Code Style
 
-We use automated tools to maintain consistent code style:
+Use automated tools to maintain consistent code style:
 
 - **Ruff** - Linting and formatting (run `ruff check src/` and `ruff format src/`)
 - **MyPy** - Type checking (run `mypy src/`)
