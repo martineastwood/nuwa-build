@@ -2,7 +2,9 @@
 
 Build Python extensions with Nim using zero-configuration tooling.
 
-**Repository:** https://github.com/martineastwood/nuwa-build
+## Status
+
+- This is currently in alpha and subject to change
 
 ## Features
 
