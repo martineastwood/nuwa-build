@@ -1,0 +1,13 @@
+[build-system]
+requires = ["nuwa-build"]
+build-backend = "nuwa_build"
+
+[project]
+name = "multi-file-test"
+version = "0.1.0"
+
+[tool.nuwa]
+nim-source = "nim"
+module-name = "multi_file_test"
+lib-name = "multi_file_test_lib"
+entry-point = "lib.nim"

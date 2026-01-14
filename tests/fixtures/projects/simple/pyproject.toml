@@ -1,0 +1,13 @@
+[build-system]
+requires = ["nuwa-build"]
+build-backend = "nuwa_build"
+
+[project]
+name = "simple-test"
+version = "0.1.0"
+
+[tool.nuwa]
+nim-source = "nim"
+module-name = "simple_test"
+lib-name = "simple_test_lib"
+entry-point = "lib.nim"

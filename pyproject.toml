@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nuwa-build"
+version = "0.1.0"
+description = "Build and publish Nim extensions for Python with zero configuration."
+readme = "README.md"
+authors = [{ name = "Martin Eastwood", email = "martin@eastwood.io" }]
+license = { text = "MIT" }
+requires-python = ">=3.7"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Nim",
+    "Topic :: Software Development :: Build Tools",
+]
+dependencies = [
+    "tomli >= 1.2.0 ; python_version < '3.11'",
+    "watchdog >= 3.0.0"
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest >= 7.0.0",
+    "pytest-cov >= 4.0.0",
+]
+dev = [
+    "mypy >= 1.0.0",
+    "ruff >= 0.1.0",
+    "pre-commit >= 3.0.0",
+]
+
+[project.scripts]
+# This registers the 'nuwa' command in your terminal
+nuwa = "nuwa_build.cli:main"
+
+[project.entry-points."distutils.commands"]
+# This helps other tools recognize nuwa (optional polish)
+nuwa_build = "nuwa_build.backend"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = "."
+addopts = "-v"
+markers = [
+    "integration: marks tests as integration tests (slow, require Nim compiler)"
+]
