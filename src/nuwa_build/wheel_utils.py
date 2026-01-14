@@ -58,10 +58,7 @@ def build_wheel_file(
     Returns:
         The wheel filename
     """
-    if tag is None:
-        wheel_name = get_wheel_tags(name, version)
-    else:
-        wheel_name = f"{name}-{version}-{tag}.whl"
+    wheel_name = get_wheel_tags(name, version) if tag is None else f"{name}-{version}-{tag}.whl"
 
     wheel_path = Path(wheel_directory) / wheel_name
 

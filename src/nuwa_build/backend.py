@@ -216,7 +216,7 @@ def _compile_nim(
         raise RuntimeError(
             f"Nim compiler not found at '{shutil.which('nim')}'.\n"
             "Install Nim from https://nim-lang.org/install.html"
-        )
+        ) from None
 
     # Success
     logger.debug(f"Successfully compiled {out_path}")
@@ -228,8 +228,8 @@ def _compile_nim(
 
 def build_wheel(
     wheel_directory: str,
-    config_settings: Optional[dict] = None,
-    metadata_directory: Optional[str] = None
+    config_settings: Optional[dict] = None,  # noqa: ARG001
+    metadata_directory: Optional[str] = None  # noqa: ARG001
 ) -> str:
     """Build a standard wheel.
 
@@ -276,7 +276,7 @@ def build_wheel(
 
 def build_sdist(
     sdist_directory: str,
-    config_settings: Optional[dict] = None
+    config_settings: Optional[dict] = None  # noqa: ARG001
 ) -> str:
     """Build a source distribution.
 
@@ -308,8 +308,8 @@ def build_sdist(
 
 def build_editable(
     wheel_directory: str,
-    config_settings: Optional[dict] = None,
-    metadata_directory: Optional[str] = None
+    config_settings: Optional[dict] = None,  # noqa: ARG001
+    metadata_directory: Optional[str] = None  # noqa: ARG001
 ) -> str:
     """Build an editable wheel (pip install -e .).
 
@@ -344,16 +344,16 @@ def build_editable(
 
 
 # Boilerplate required hooks
-def get_requires_for_build_wheel(config_settings: Optional[dict] = None) -> list:
+def get_requires_for_build_wheel(config_settings: Optional[dict] = None) -> list:  # noqa: ARG001
     """Return build requirements for wheels."""
     return []
 
 
-def get_requires_for_build_sdist(config_settings: Optional[dict] = None) -> list:
+def get_requires_for_build_sdist(config_settings: Optional[dict] = None) -> list:  # noqa: ARG001
     """Return build requirements for source distributions."""
     return []
 
 
-def get_requires_for_build_editable(config_settings: Optional[dict] = None) -> list:
+def get_requires_for_build_editable(config_settings: Optional[dict] = None) -> list:  # noqa: ARG001
     """Return build requirements for editable installs."""
     return []

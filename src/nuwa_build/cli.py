@@ -105,7 +105,7 @@ def run_develop(args: argparse.Namespace) -> None:
         config_overrides["nim_flags"] = args.nim_flags
 
     try:
-        out = _compile_nim(
+        _compile_nim(
             build_type=build_type,
             inplace=True,
             config_overrides=config_overrides if config_overrides else None

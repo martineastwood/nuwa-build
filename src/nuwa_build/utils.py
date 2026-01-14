@@ -22,7 +22,7 @@ def check_nim_installed() -> None:
 
     # Verify nim works
     try:
-        result = subprocess.run(
+        subprocess.run(
             ["nim", "--version"],
             capture_output=True,
             text=True,
@@ -32,7 +32,7 @@ def check_nim_installed() -> None:
         raise RuntimeError(
             f"Nim compiler not working:\n{e.stderr}\n"
             "Check your Nim installation."
-        )
+        ) from e
 
 
 def get_platform_extension() -> str:
@@ -208,7 +208,7 @@ def install_nimble_dependencies(deps: list) -> None:
             raise RuntimeError(
                 "nimble command not found. "
                 "Make sure Nim is properly installed and in your PATH."
-            )
+            ) from None
         except Exception as e:
             print(f"    ⚠ Error installing {dep}: {e}")
             # Don't fail hard, just warn and continue
