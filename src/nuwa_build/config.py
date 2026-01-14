@@ -10,7 +10,7 @@ else:
     try:
         import tomli as tomllib
     except ImportError:
-        tomllib = None
+        tomllib = None  # type: ignore[assignment]
 
 
 def get_default_config(project_name: str = "nuwa_project") -> Dict[str, Any]:
@@ -71,10 +71,7 @@ def load_pyproject_toml() -> Dict[str, Any]:
         Parsed TOML data, or empty dict if file not found
     """
     if tomllib is None:
-        raise RuntimeError(
-            "Cannot parse pyproject.toml. "
-            "Install tomli: pip install tomli"
-        )
+        raise RuntimeError("Cannot parse pyproject.toml. Install tomli: pip install tomli")
 
     try:
         with open("pyproject.toml", "rb") as f:

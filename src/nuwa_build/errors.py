@@ -14,28 +14,30 @@ def parse_nim_error(stderr: str) -> Optional[Dict]:
     Returns:
         Dictionary with error details, or None if no error found
     """
-    lines = stderr.strip().split('\n')
+    lines = stderr.strip().split("\n")
 
     # Nim error format: "filename(line, col) Error: message"
     # or "filename(line, col) Hint: message"
     # Also handles spaces around comma: "filename(line , col ) Error: message"
-    error_pattern = re.compile(r'^(.+)\((\d+)\s*,\s*(\d+)\s*\)\s+(Error|Warning|Hint):\s+(.+)$')
+    error_pattern = re.compile(r"^(.+)\((\d+)\s*,\s*(\d+)\s*\)\s+(Error|Warning|Hint):\s+(.+)$")
 
     for line in lines:
         match = error_pattern.match(line.strip())
         if match:
             return {
-                'file': match.group(1),
-                'line': int(match.group(2)),
-                'col': int(match.group(3)),
-                'level': match.group(4),  # Error, Warning, Hint
-                'message': match.group(5).strip()
+                "file": match.group(1),
+                "line": int(match.group(2)),
+                "col": int(match.group(3)),
+                "level": match.group(4),  # Error, Warning, Hint
+                "message": match.group(5).strip(),
             }
 
     return None
 
 
-def get_error_context(file_path: Path, line_num: int, context_lines: int = 2) -> Tuple[List[str], int]:
+def get_error_context(
+    file_path: Path, line_num: int, context_lines: int = 2
+) -> Tuple[List[str], int]:
     """Get source code context around an error.
 
     Args:
@@ -47,7 +49,7 @@ def get_error_context(file_path: Path, line_num: int, context_lines: int = 2) ->
         Tuple of (list of context lines, index of error line in context)
     """
     try:
-        with open(file_path, encoding='utf-8') as f:
+        with open(file_path, encoding="utf-8") as f:
             lines = f.readlines()
 
         start = max(0, line_num - context_lines - 1)
@@ -75,34 +77,29 @@ ERROR_SUGGESTIONS = {
         "Use $() to convert to string: $(myInt)",
         "Use int() to convert string to int: int(myString)",
     ],
-
     # Undeclared identifiers
     "undeclared": [
         "Check for typos in the identifier name",
         "Make sure the variable is defined before use",
         "Import the module if it's defined elsewhere",
     ],
-
     # Missing imports
     "cannot open": [
         "Ensure the file exists in the project directory",
         "Check the file name and path are correct",
         "Make sure you're using 'include' for shared libraries, not 'import'",
     ],
-
     # Module issues
     "module": [
         "Ensure the module is in your Nim path",
         "Check that all 'include'd files exist",
     ],
-
     # Nimpy specific
     "nimpy": [
         "Install nimble package: nimble install nimpy",
         "Import nimpy: import nimpy",
         "Make sure proc has {.exportpy.} pragma",
     ],
-
     # Exportpy/pragma errors
     "exportpy": [
         "Make sure you imported nimpy: import nimpy",
@@ -113,7 +110,6 @@ ERROR_SUGGESTIONS = {
         "Check that the pragma name is spelled correctly",
         "Some pragmas require importing specific modules",
     ],
-
     # Syntax errors
     "expected": [
         "Check for missing parentheses, brackets, or braces",
@@ -159,7 +155,7 @@ def format_compilation_error(stderr: str, working_dir: Optional[Path] = None) ->
         return stderr
 
     # Resolve file path
-    file_path = Path(error['file'])
+    file_path = Path(error["file"])
     if working_dir and not file_path.is_absolute():
         file_path = working_dir / file_path
 
@@ -167,7 +163,7 @@ def format_compilation_error(stderr: str, working_dir: Optional[Path] = None) ->
     output = []
 
     # Header
-    symbol = "❌" if error['level'] == "Error" else "⚠️"
+    symbol = "❌" if error["level"] == "Error" else "⚠️"
     output.append(f"\n{symbol} {error['level']} in {file_path}")
     output.append(f"   Line {error['line']}, Column {error['col']}")
     output.append("")
@@ -177,7 +173,7 @@ def format_compilation_error(stderr: str, working_dir: Optional[Path] = None) ->
     output.append("")
 
     # Context
-    context_lines, error_idx = get_error_context(file_path, error['line'])
+    context_lines, error_idx = get_error_context(file_path, error["line"])
     if context_lines:
         output.append("Code:")
         output.append("```nim")
@@ -186,7 +182,7 @@ def format_compilation_error(stderr: str, working_dir: Optional[Path] = None) ->
         output.append("")
 
     # Suggestions
-    suggestions = get_suggestions(error['message'])
+    suggestions = get_suggestions(error["message"])
     if suggestions:
         output.append("💡 Suggestions:")
         for i, suggestion in enumerate(suggestions, 1):

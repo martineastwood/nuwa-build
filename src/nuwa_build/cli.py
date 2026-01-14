@@ -43,10 +43,7 @@ def run_new(args: argparse.Namespace) -> None:
 
         # Write pyproject.toml
         with open(path / "pyproject.toml", "w") as f:
-            f.write(PYPROJECT_TOML.format(
-                project_name=name,
-                module_name=module_name
-            ))
+            f.write(PYPROJECT_TOML.format(project_name=name, module_name=module_name))
 
         # Write Nim sources - entry point filename determines Python module name
         with open(path / "nim" / f"{lib_name}.nim", "w") as f:
@@ -61,10 +58,7 @@ def run_new(args: argparse.Namespace) -> None:
 
         # Write README
         with open(path / "README.md", "w") as f:
-            f.write(README_MD.format(
-                project_name=name,
-                module_name=module_name
-            ))
+            f.write(README_MD.format(project_name=name, module_name=module_name))
 
         # Write supporting files
         with open(path / ".gitignore", "w") as f:
@@ -108,7 +102,7 @@ def run_develop(args: argparse.Namespace) -> None:
         _compile_nim(
             build_type=build_type,
             inplace=True,
-            config_overrides=config_overrides if config_overrides else None
+            config_overrides=config_overrides if config_overrides else None,
         )
         # Note: Success message is printed by backend.py
         print("💡 Run 'python example.py' or 'pytest' to test your module")
@@ -147,9 +141,11 @@ def run_watch(args: argparse.Namespace) -> None:
 
     # Load configuration to get nim source directory
     from .config import parse_nuwa_config
+
     config = parse_nuwa_config()
     if config_overrides:
         from .config import merge_cli_args
+
         config = merge_cli_args(config, config_overrides)
 
     watch_dir = Path(config["nim_source"])
@@ -160,7 +156,7 @@ def run_watch(args: argparse.Namespace) -> None:
     build_type = "release" if args.release else "debug"
 
     # Debounce timer to avoid multiple compilations
-    last_compile = 0
+    last_compile: float = 0.0
     debounce_delay = 0.5  # seconds
 
     class NimFileHandler(FileSystemEventHandler):
@@ -170,7 +166,7 @@ def run_watch(args: argparse.Namespace) -> None:
             nonlocal last_compile
 
             # Only process .nim files
-            if not event.src_path.endswith('.nim'):
+            if not event.src_path.endswith(".nim"):
                 return
 
             # Debounce: wait for file changes to settle
@@ -188,17 +184,15 @@ def run_watch(args: argparse.Namespace) -> None:
                 out = _compile_nim(
                     build_type=build_type,
                     inplace=True,
-                    config_overrides=config_overrides if config_overrides else None
+                    config_overrides=config_overrides if config_overrides else None,
                 )
                 print(f"✅ Built {out.name}")
 
                 if args.run_tests:
                     print("🧪 Running tests...")
                     import subprocess
-                    result = subprocess.run(
-                        ["pytest", "-v"],
-                        capture_output=False
-                    )
+
+                    result = subprocess.run(["pytest", "-v"], capture_output=False)
                     if result.returncode == 0:
                         print("✅ Tests passed!")
                     else:
@@ -230,7 +224,7 @@ def run_watch(args: argparse.Namespace) -> None:
             out = _compile_nim(
                 build_type=build_type,
                 inplace=True,
-                config_overrides=config_overrides if config_overrides else None
+                config_overrides=config_overrides if config_overrides else None,
             )
             print(f"✅ Initial build complete: {out.name}")
         except Exception as e:
@@ -251,10 +245,7 @@ def run_watch(args: argparse.Namespace) -> None:
 
 def main() -> None:
     """Main CLI entry point."""
-    parser = argparse.ArgumentParser(
-        prog="nuwa",
-        description="Build Python extensions with Nim."
-    )
+    parser = argparse.ArgumentParser(prog="nuwa", description="Build Python extensions with Nim.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # new command
@@ -264,67 +255,36 @@ def main() -> None:
 
     # develop command
     cmd_dev = subparsers.add_parser("develop", help="Compile in-place")
-    cmd_dev.add_argument(
-        "-r", "--release",
-        action="store_true",
-        help="Build in release mode"
-    )
-    cmd_dev.add_argument(
-        "--module-name",
-        help="Override Python module name"
-    )
-    cmd_dev.add_argument(
-        "--nim-source",
-        help="Override Nim source directory"
-    )
-    cmd_dev.add_argument(
-        "--entry-point",
-        help="Override entry point file name"
-    )
-    cmd_dev.add_argument(
-        "--output-dir",
-        help="Override output directory"
-    )
+    cmd_dev.add_argument("-r", "--release", action="store_true", help="Build in release mode")
+    cmd_dev.add_argument("--module-name", help="Override Python module name")
+    cmd_dev.add_argument("--nim-source", help="Override Nim source directory")
+    cmd_dev.add_argument("--entry-point", help="Override entry point file name")
+    cmd_dev.add_argument("--output-dir", help="Override output directory")
     cmd_dev.add_argument(
         "--nim-flag",
         action="append",
         dest="nim_flags",
-        help="Additional Nim compiler flags (can be used multiple times)"
+        help="Additional Nim compiler flags (can be used multiple times)",
     )
 
     # watch command
     cmd_watch = subparsers.add_parser("watch", help="Watch for changes and recompile")
-    cmd_watch.add_argument(
-        "-r", "--release",
-        action="store_true",
-        help="Build in release mode"
-    )
-    cmd_watch.add_argument(
-        "--module-name",
-        help="Override Python module name"
-    )
-    cmd_watch.add_argument(
-        "--nim-source",
-        help="Override Nim source directory"
-    )
-    cmd_watch.add_argument(
-        "--entry-point",
-        help="Override entry point file name"
-    )
-    cmd_watch.add_argument(
-        "--output-dir",
-        help="Override output directory"
-    )
+    cmd_watch.add_argument("-r", "--release", action="store_true", help="Build in release mode")
+    cmd_watch.add_argument("--module-name", help="Override Python module name")
+    cmd_watch.add_argument("--nim-source", help="Override Nim source directory")
+    cmd_watch.add_argument("--entry-point", help="Override entry point file name")
+    cmd_watch.add_argument("--output-dir", help="Override output directory")
     cmd_watch.add_argument(
         "--nim-flag",
         action="append",
         dest="nim_flags",
-        help="Additional Nim compiler flags (can be used multiple times)"
+        help="Additional Nim compiler flags (can be used multiple times)",
     )
     cmd_watch.add_argument(
-        "-t", "--run-tests",
+        "-t",
+        "--run-tests",
         action="store_true",
-        help="Run pytest after each successful compilation"
+        help="Run pytest after each successful compilation",
     )
 
     args = parser.parse_args()

@@ -1,11 +1,12 @@
 """Unit tests for configuration parsing and validation."""
 
 import pytest
+
 from nuwa_build.config import (
     get_default_config,
-    validate_config,
-    parse_nuwa_config,
     merge_cli_args,
+    parse_nuwa_config,
+    validate_config,
 )
 
 
@@ -68,23 +69,18 @@ class TestValidateConfig:
 
     def test_invalid_module_name_with_hyphen(self):
         """Test that module names with hyphens are rejected."""
-        config = {
-            "nim_source": "nim",
-            "module_name": "my-package",
-            "lib_name": "my_package_lib",
-            "entry_point": "lib.nim",
-        }
-
         # Actually, this should pass because hyphens are converted to underscores
         # But the validation should catch if it's not a valid identifier after normalization
         # For now, let's test the actual validation
         with pytest.raises(ValueError, match="not a valid Python identifier"):
-            validate_config({
-                "nim_source": "nim",
-                "module_name": "my package",  # Space is invalid
-                "lib_name": "my_package_lib",
-                "entry_point": "lib.nim",
-            })
+            validate_config(
+                {
+                    "nim_source": "nim",
+                    "module_name": "my package",  # Space is invalid
+                    "lib_name": "my_package_lib",
+                    "entry_point": "lib.nim",
+                }
+            )
 
     def test_empty_nim_source(self):
         """Test that empty nim_source is rejected."""
@@ -98,13 +94,16 @@ class TestValidateConfig:
         with pytest.raises(ValueError, match="cannot be empty"):
             validate_config(config)
 
-    @pytest.mark.parametrize("module_name", [
-        "valid_name",
-        "my_module",
-        "MyModule",
-        "module123",
-        "_private",
-    ])
+    @pytest.mark.parametrize(
+        "module_name",
+        [
+            "valid_name",
+            "my_module",
+            "MyModule",
+            "module123",
+            "_private",
+        ],
+    )
     def test_valid_module_names(self, module_name):
         """Test that valid module names pass validation."""
         config = {
@@ -175,6 +174,7 @@ class TestParseNuwaConfig:
     def test_parse_without_pyproject(self, tmp_path):
         """Test parsing when no pyproject.toml exists."""
         import os
+
         original = os.getcwd()
 
         try:
@@ -190,12 +190,15 @@ class TestParseNuwaConfig:
     def test_parse_with_minimal_config(self, temp_project):
         """Test parsing minimal pyproject.toml."""
         pyproject = temp_project / "pyproject.toml"
-        pyproject.write_text("""[project]
+        pyproject.write_text(
+            """[project]
 name = "my-package"
 version = "0.1.0"
-""")
+"""
+        )
 
         import os
+
         original = os.getcwd()
         try:
             os.chdir(temp_project)
@@ -209,7 +212,8 @@ version = "0.1.0"
     def test_parse_with_custom_config(self, temp_project):
         """Test parsing custom configuration values."""
         pyproject = temp_project / "pyproject.toml"
-        pyproject.write_text("""[project]
+        pyproject.write_text(
+            """[project]
 name = "my-package"
 version = "0.1.0"
 
@@ -217,9 +221,11 @@ version = "0.1.0"
 module-name = "custom_module"
 nim-source = "src/nim"
 entry-point = "main.nim"
-""")
+"""
+        )
 
         import os
+
         original = os.getcwd()
         try:
             os.chdir(temp_project)

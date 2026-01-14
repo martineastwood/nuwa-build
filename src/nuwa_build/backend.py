@@ -35,8 +35,7 @@ def _extract_metadata() -> tuple[str, str]:
 
     if not pyproject:
         raise FileNotFoundError(
-            "pyproject.toml not found. "
-            "This command must be run in a project directory."
+            "pyproject.toml not found. This command must be run in a project directory."
         )
 
     project = pyproject.get("project", {})
@@ -79,11 +78,7 @@ def _determine_inplace_output(module_name: str, config: dict) -> Path:
 
 
 def _build_nim_command(
-    entry_point: Path,
-    output_path: Path,
-    build_type: str,
-    nim_flags: list,
-    nim_dir: Path
+    entry_point: Path, output_path: Path, build_type: str, nim_flags: list, nim_dir: Path
 ) -> list[str]:
     """Build the Nim compiler command.
 
@@ -122,9 +117,7 @@ def _build_nim_command(
 
 
 def _compile_nim(
-    build_type: str = "release",
-    inplace: bool = False,
-    config_overrides: Optional[dict] = None
+    build_type: str = "release", inplace: bool = False, config_overrides: Optional[dict] = None
 ) -> Path:
     """Compile the Nim extension.
 
@@ -179,24 +172,16 @@ def _compile_nim(
         output_path=out_path,
         build_type=build_type,
         nim_flags=config["nim_flags"],
-        nim_dir=nim_dir
+        nim_dir=nim_dir,
     )
 
     # Run compilation
     try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            check=False
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
 
         if result.returncode != 0:
             # Format and display error with context
-            formatted_error = format_compilation_error(
-                result.stderr,
-                working_dir=Path.cwd()
-            )
+            formatted_error = format_compilation_error(result.stderr, working_dir=Path.cwd())
             print(formatted_error)
             raise subprocess.CalledProcessError(result.returncode, cmd)
 
@@ -226,10 +211,11 @@ def _compile_nim(
 
 # --- PEP 517 Hooks ---
 
+
 def build_wheel(
     wheel_directory: str,
     config_settings: Optional[dict] = None,  # noqa: ARG001
-    metadata_directory: Optional[str] = None  # noqa: ARG001
+    metadata_directory: Optional[str] = None,  # noqa: ARG001
 ) -> str:
     """Build a standard wheel.
 
@@ -276,7 +262,7 @@ def build_wheel(
 
 def build_sdist(
     sdist_directory: str,
-    config_settings: Optional[dict] = None  # noqa: ARG001
+    config_settings: Optional[dict] = None,  # noqa: ARG001
 ) -> str:
     """Build a source distribution.
 
@@ -295,21 +281,18 @@ def build_sdist(
     # Create source distribution archive
     base_name = f"{name}-{version}"
     archive_name = f"{base_name}.tar.gz"
-    shutil.make_archive(
-        str(Path(sdist_directory) / base_name),
-        "gztar",
-        root_dir="."
-    )
+    shutil.make_archive(str(Path(sdist_directory) / base_name), "gztar", root_dir=".")
 
     return archive_name
 
 
 # --- PEP 660 Hooks (Editable Installs) ---
 
+
 def build_editable(
     wheel_directory: str,
     config_settings: Optional[dict] = None,  # noqa: ARG001
-    metadata_directory: Optional[str] = None  # noqa: ARG001
+    metadata_directory: Optional[str] = None,  # noqa: ARG001
 ) -> str:
     """Build an editable wheel (pip install -e .).
 

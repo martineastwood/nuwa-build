@@ -26,9 +26,7 @@ def discover_nim_sources(config: dict) -> Tuple[Path, Path]:
         )
 
     if not nim_dir.is_dir():
-        raise ValueError(
-            f"Nim source path is not a directory: {nim_dir}"
-        )
+        raise ValueError(f"Nim source path is not a directory: {nim_dir}")
 
     # Find entry point
     entry_point_name = config["entry_point"]
@@ -41,10 +39,7 @@ def discover_nim_sources(config: dict) -> Tuple[Path, Path]:
     return discover_entry_point_fallback(nim_dir, config["module_name"])
 
 
-def discover_entry_point_fallback(
-    nim_dir: Path,
-    module_name: str
-) -> Tuple[Path, Path]:
+def discover_entry_point_fallback(nim_dir: Path, module_name: str) -> Tuple[Path, Path]:
     """Fallback entry point discovery when explicit file not found.
 
     Strategy:
@@ -91,7 +86,7 @@ def discover_entry_point_fallback(
         f"Multiple .nim files found in {nim_dir}. "
         f"Please specify entry point in pyproject.toml:\n"
         f"  [tool.nuwa]\n"
-        f"  entry-point = \"<filename>.nim\"\n\n"
+        f'  entry-point = "<filename>.nim"\n\n'
         f"Found files: {[f.name for f in nim_files]}"
     )
 
@@ -111,8 +106,7 @@ def validate_nim_project(nim_dir: Path, entry_point: Path) -> List[Path]:
     """
     if not entry_point.exists():
         raise FileNotFoundError(
-            f"Entry point not found: {entry_point}\n"
-            f"Ensure the file exists: {entry_point}"
+            f"Entry point not found: {entry_point}\nEnsure the file exists: {entry_point}"
         )
 
     # Find all Nim files for dependency checking

@@ -1,13 +1,13 @@
 """Unit tests for error parsing and formatting."""
 
-import pytest
 from pathlib import Path
+
 from nuwa_build.errors import (
-    parse_nim_error,
-    get_error_context,
-    get_suggestions,
     format_compilation_error,
     format_compilation_success,
+    get_error_context,
+    get_suggestions,
+    parse_nim_error,
 )
 
 
@@ -32,7 +32,7 @@ class TestParseNimError:
         stderr = "hint.nim(12, 10) Hint: add 'exportpy' pragma"
 
         result = parse_nim_error(stderr)
-
+        assert result is not None
         assert result["level"] == "Hint"
         assert result["message"] == "add 'exportpy' pragma"
 
@@ -73,12 +73,14 @@ class TestGetErrorContext:
         """Test getting context from an actual file."""
         # Create test file
         test_file = tmp_path / "test.nim"
-        test_file.write_text("""line 1
+        test_file.write_text(
+            """line 1
 line 2
 line 3
 line 4
 line 5
-""")
+"""
+        )
 
         context, error_idx = get_error_context(test_file, 3, context_lines=2)
 
@@ -88,10 +90,12 @@ line 5
     def test_get_context_near_file_start(self, tmp_path):
         """Test getting context when error is near file start."""
         test_file = tmp_path / "test.nim"
-        test_file.write_text("""line 1
+        test_file.write_text(
+            """line 1
 line 2
 line 3
-""")
+"""
+        )
 
         context, error_idx = get_error_context(test_file, 1, context_lines=2)
 
@@ -147,9 +151,11 @@ class TestFormatCompilationError:
         """Test formatting error with file context."""
         # Create test file with error
         test_file = tmp_path / "test.nim"
-        test_file.write_text("""proc test(): string =
+        test_file.write_text(
+            """proc test(): string =
   return 123
-""")
+"""
+        )
 
         stderr = "test.nim(2, 10) Error: type mismatch"
 

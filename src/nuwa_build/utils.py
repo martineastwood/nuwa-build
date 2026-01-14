@@ -16,22 +16,15 @@ def check_nim_installed() -> None:
     """
     if not shutil.which("nim"):
         raise RuntimeError(
-            "Nim compiler not found in PATH.\n"
-            "Install Nim from https://nim-lang.org/install.html"
+            "Nim compiler not found in PATH.\nInstall Nim from https://nim-lang.org/install.html"
         )
 
     # Verify nim works
     try:
-        subprocess.run(
-            ["nim", "--version"],
-            capture_output=True,
-            text=True,
-            check=True
-        )
+        subprocess.run(["nim", "--version"], capture_output=True, text=True, check=True)
     except subprocess.CalledProcessError as e:
         raise RuntimeError(
-            f"Nim compiler not working:\n{e.stderr}\n"
-            "Check your Nim installation."
+            f"Nim compiler not working:\n{e.stderr}\nCheck your Nim installation."
         ) from e
 
 
@@ -119,10 +112,12 @@ def working_directory(path: Path):
     original = Path.cwd()
     try:
         import os
+
         os.chdir(path)
         yield
     finally:
         import os
+
         os.chdir(original)
 
 
@@ -157,10 +152,7 @@ def install_nimble_dependencies(deps: list) -> None:
     # Get list of installed packages
     try:
         result = subprocess.run(
-            ["nimble", "list", "-i"],
-            capture_output=True,
-            text=True,
-            check=False
+            ["nimble", "list", "-i"], capture_output=True, text=True, check=False
         )
         installed = result.stdout.lower()
     except Exception:
@@ -186,15 +178,15 @@ def install_nimble_dependencies(deps: list) -> None:
         print(f"  Installing {dep}...")
         try:
             result = subprocess.run(
-                ["nimble", "install", "-y", dep],
-                capture_output=True,
-                text=True,
-                check=False
+                ["nimble", "install", "-y", dep], capture_output=True, text=True, check=False
             )
 
             if result.returncode != 0:
                 # Check if it's already installed (nimble returns non-zero if already installed)
-                if "already installed" in result.stdout.lower() or "already installed" in result.stderr.lower():
+                if (
+                    "already installed" in result.stdout.lower()
+                    or "already installed" in result.stderr.lower()
+                ):
                     print(f"    ✓ {dep} already installed")
                 else:
                     print(f"    ⚠ Failed to install {dep}")
@@ -206,8 +198,7 @@ def install_nimble_dependencies(deps: list) -> None:
 
         except FileNotFoundError:
             raise RuntimeError(
-                "nimble command not found. "
-                "Make sure Nim is properly installed and in your PATH."
+                "nimble command not found. Make sure Nim is properly installed and in your PATH."
             ) from None
         except Exception as e:
             print(f"    ⚠ Error installing {dep}: {e}")

@@ -1,7 +1,8 @@
 """Unit tests for source file discovery."""
 
+
 import pytest
-from pathlib import Path
+
 from nuwa_build.discovery import (
     discover_entry_point_fallback,
     validate_nim_project,
@@ -25,10 +26,7 @@ class TestEntryPointFallback:
 
         module_name = "test_module"
 
-        result_dir, result_file = discover_entry_point_fallback(
-            nim_dir,
-            module_name
-        )
+        result_dir, result_file = discover_entry_point_fallback(nim_dir, module_name)
 
         assert result_dir == nim_dir
         assert result_file == nim_dir / "test_module_lib.nim"
@@ -38,10 +36,7 @@ class TestEntryPointFallback:
         # Create lib.nim
         (nim_dir / "lib.nim").write_text("import nimpy")
 
-        result_dir, result_file = discover_entry_point_fallback(
-            nim_dir,
-            "test_module"
-        )
+        result_dir, result_file = discover_entry_point_fallback(nim_dir, "test_module")
 
         assert result_file == nim_dir / "lib.nim"
 
@@ -50,10 +45,7 @@ class TestEntryPointFallback:
         # Create single file with different name
         (nim_dir / "main.nim").write_text("import nimpy")
 
-        result_dir, result_file = discover_entry_point_fallback(
-            nim_dir,
-            "test_module"
-        )
+        result_dir, result_file = discover_entry_point_fallback(nim_dir, "test_module")
 
         assert result_file == nim_dir / "main.nim"
 

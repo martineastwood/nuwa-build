@@ -1,9 +1,6 @@
 """Pytest configuration and fixtures for Nuwa Build tests."""
 
 import shutil
-import sys
-from pathlib import Path
-from unittest.mock import Mock
 
 import pytest
 
@@ -12,7 +9,7 @@ def pytest_configure(config):
     """Configure pytest markers."""
     config.addinivalue_line(
         "markers",
-        "integration: marks tests as integration tests (slow, require Nim compiler)"
+        "integration: marks tests as integration tests (slow, require Nim compiler)",
     )
 
 
@@ -64,19 +61,23 @@ def sample_nim_file(temp_project):
     nim_dir.mkdir()
 
     lib_file = nim_dir / "test_lib.nim"
-    lib_file.write_text("""import nimpy
+    lib_file.write_text(
+        """import nimpy
 
 proc greet(name: string): string {.exportpy.} =
   return "Hello, " & name
 
 proc add(a: int, b: int): int {.exportpy.} =
   return a + b
-""")
+"""
+    )
 
     helpers_file = nim_dir / "helpers.nim"
-    helpers_file.write_text("""proc make_greeting(name: string): string =
+    helpers_file.write_text(
+        """proc make_greeting(name: string): string =
   return "Greetings, " & name & "!"
-""")
+"""
+    )
 
     return lib_file
 
@@ -92,7 +93,8 @@ def sample_pyproject(temp_project):
         Path to the created pyproject.toml
     """
     pyproject = temp_project / "pyproject.toml"
-    pyproject.write_text("""[build-system]
+    pyproject.write_text(
+        """[build-system]
 requires = ["nuwa-build"]
 build-backend = "nuwa_build"
 
@@ -106,7 +108,8 @@ module-name = "test_project"
 lib-name = "test_project_lib"
 entry-point = "test_lib.nim"
 nimble-deps = []
-""")
+"""
+    )
     return pyproject
 
 
@@ -129,11 +132,8 @@ def mock_config():
 
 
 @pytest.fixture
-def working_directory(tmp_path):
+def working_directory():
     """Context manager for temporary directory changes during tests.
-
-    Args:
-        tmp_path: pytest tmp_path fixture
 
     Yields:
         Function that changes to temp directory and restores original

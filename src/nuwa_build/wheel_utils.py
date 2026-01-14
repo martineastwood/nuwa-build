@@ -8,10 +8,7 @@ from .utils import get_wheel_tags
 
 
 def write_wheel_metadata(
-    zf: zipfile.ZipFile,
-    name: str,
-    version: str,
-    tag: str = "py3-none-any"
+    zf: zipfile.ZipFile, name: str, version: str, tag: str = "py3-none-any"
 ) -> str:
     """Write wheel metadata files to the wheel archive.
 
@@ -28,11 +25,10 @@ def write_wheel_metadata(
 
     zf.writestr(
         f"{dist_info}/WHEEL",
-        f"Wheel-Version: 1.0\nGenerator: nuwa\nRoot-Is-Purelib: false\nTag: {tag}\n"
+        f"Wheel-Version: 1.0\nGenerator: nuwa\nRoot-Is-Purelib: false\nTag: {tag}\n",
     )
     zf.writestr(
-        f"{dist_info}/METADATA",
-        f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n"
+        f"{dist_info}/METADATA", f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n"
     )
     zf.writestr(f"{dist_info}/RECORD", "")
 
@@ -44,7 +40,7 @@ def build_wheel_file(
     name: str,
     version: str,
     files_to_add: dict[str, str],
-    tag: Optional[str] = None
+    tag: Optional[str] = None,
 ) -> str:
     """Build a wheel file with the given files.
 

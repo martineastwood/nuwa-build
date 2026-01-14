@@ -12,8 +12,11 @@ repos:
     rev: v1.8.0
     hooks:
       - id: mypy
+        exclude: ^tests/fixtures/
         additional_dependencies:
           - tomli
+          - pytest
+          - watchdog
         args: [--config-file=.mypy.ini]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks

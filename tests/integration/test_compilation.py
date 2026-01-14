@@ -1,10 +1,11 @@
 """Integration tests for Nim compilation workflow."""
 
-import pytest
+import os
 import subprocess
 import sys
 from pathlib import Path
-import os
+
+import pytest
 
 # Handle tomllib for Python 3.11+
 if sys.version_info >= (3, 11):
@@ -12,19 +13,21 @@ if sys.version_info >= (3, 11):
 else:
     import tomli as tomllib
 
-from nuwa_build.backend import build_wheel, build_editable
+from nuwa_build.backend import build_editable, build_wheel
 from nuwa_build.cli import run_new
 
 
 @pytest.mark.integration
+@pytest.mark.usefixtures("requires_nim")
 class TestSimpleCompilation:
     """Tests for simple Nim project compilation."""
 
-    def test_build_simple_project(self, tmp_path, requires_nim):
+    def test_build_simple_project(self, tmp_path):
         """Test building a simple Nim project."""
         # Copy fixture to temp directory
         fixture_path = Path(__file__).parent.parent / "fixtures" / "projects" / "simple"
         import shutil
+
         project_path = tmp_path / "simple_test"
         shutil.copytree(fixture_path, project_path)
 
@@ -42,10 +45,11 @@ class TestSimpleCompilation:
         assert str(wheel_path).endswith(".whl")
         assert "simple_test" in str(wheel_path) or "simple-test" in str(wheel_path)
 
-    def test_build_editable_simple_project(self, tmp_path, requires_nim):
+    def test_build_editable_simple_project(self, tmp_path):
         """Test building an editable install."""
         fixture_path = Path(__file__).parent.parent / "fixtures" / "projects" / "simple"
         import shutil
+
         project_path = tmp_path / "simple_test_editable"
         shutil.copytree(fixture_path, project_path)
 
@@ -61,13 +65,15 @@ class TestSimpleCompilation:
 
 
 @pytest.mark.integration
+@pytest.mark.usefixtures("requires_nim")
 class TestMultiFileCompilation:
     """Tests for multi-file Nim project compilation."""
 
-    def test_build_multi_file_project(self, tmp_path, requires_nim):
+    def test_build_multi_file_project(self, tmp_path):
         """Test building a project with multiple Nim files."""
         fixture_path = Path(__file__).parent.parent / "fixtures" / "projects" / "multi_file"
         import shutil
+
         project_path = tmp_path / "multi_file_test"
         shutil.copytree(fixture_path, project_path)
 
@@ -83,13 +89,15 @@ class TestMultiFileCompilation:
 
 
 @pytest.mark.integration
+@pytest.mark.usefixtures("requires_nim")
 class TestErrorHandling:
     """Tests for error handling during compilation."""
 
-    def test_type_error_message(self, tmp_path, requires_nim):
+    def test_type_error_message(self, tmp_path):
         """Test that type errors produce helpful messages."""
         fixture_path = Path(__file__).parent.parent / "fixtures" / "projects" / "with_errors"
         import shutil
+
         project_path = tmp_path / "with_errors"
         shutil.copytree(fixture_path, project_path)
 
@@ -101,10 +109,11 @@ class TestErrorHandling:
         with pytest.raises(subprocess.CalledProcessError):
             build_wheel(str(wheel_dir))
 
-    def test_undeclared_variable_error(self, tmp_path, requires_nim):
+    def test_undeclared_variable_error(self, tmp_path):
         """Test that undeclared variables are caught."""
         fixture_path = Path(__file__).parent.parent / "fixtures" / "projects" / "with_errors"
         import shutil
+
         project_path = tmp_path / "with_errors_undecl"
         shutil.copytree(fixture_path, project_path)
 
@@ -118,20 +127,20 @@ class TestErrorHandling:
 
 
 @pytest.mark.integration
+@pytest.mark.usefixtures("requires_nim")
 class TestCLIScaffolding:
     """Tests for CLI project scaffolding."""
 
-    def test_new_command_creates_project(self, tmp_path, requires_nim):
+    def test_new_command_creates_project(self, tmp_path):
         """Test that 'nuwa new' creates a valid project structure."""
         project_path = tmp_path / "new_project"
 
-        # Create a mock args namespace
-        class Args:
-            path = str(project_path)
-            name = "test_project"
+        from argparse import Namespace
+
+        args = Namespace(path=str(project_path), name="test_project")
 
         # Run new command
-        run_new(Args())
+        run_new(args)
 
         # Verify structure
         assert (project_path / "pyproject.toml").exists()
@@ -151,15 +160,15 @@ class TestCLIScaffolding:
         assert "tool" in config
         assert "nuwa" in config["tool"]
 
-    def test_new_project_can_build(self, tmp_path, requires_nim):
+    def test_new_project_can_build(self, tmp_path):
         """Test that a newly created project can be built."""
         project_path = tmp_path / "buildable_project"
 
-        class Args:
-            path = str(project_path)
-            name = "buildable"
+        from argparse import Namespace
 
-        run_new(Args())
+        args = Namespace(path=str(project_path), name="buildable")
+
+        run_new(args)
         os.chdir(project_path)
 
         wheel_dir = tmp_path / "wheels_buildable"
@@ -172,13 +181,15 @@ class TestCLIScaffolding:
 
 
 @pytest.mark.integration
+@pytest.mark.usefixtures("requires_nim")
 class TestDiscovery:
     """Tests for source discovery."""
 
-    def test_auto_discovers_entry_point(self, tmp_path, requires_nim):
+    def test_auto_discovers_entry_point(self, tmp_path):
         """Test that entry point is auto-discovered when not specified."""
         fixture_path = Path(__file__).parent.parent / "fixtures" / "projects" / "simple"
         import shutil
+
         project_path = tmp_path / "simple_auto"
         shutil.copytree(fixture_path, project_path)
 
@@ -195,15 +206,17 @@ class TestDiscovery:
 
 
 @pytest.mark.integration
+@pytest.mark.usefixtures("requires_nim")
 class TestWheelMetadata:
     """Tests for generated wheel metadata."""
 
-    def test_wheel_contains_metadata(self, tmp_path, requires_nim):
+    def test_wheel_contains_metadata(self, tmp_path):
         """Test that wheels contain proper metadata."""
         import zipfile
 
         fixture_path = Path(__file__).parent.parent / "fixtures" / "projects" / "simple"
         import shutil
+
         project_path = tmp_path / "metadata_test"
         shutil.copytree(fixture_path, project_path)
 
@@ -214,7 +227,7 @@ class TestWheelMetadata:
         wheel_path = Path(wheel_dir) / wheel_filename
 
         # Check wheel contents
-        with zipfile.ZipFile(wheel_path, 'r') as whl:
+        with zipfile.ZipFile(wheel_path, "r") as whl:
             files = whl.namelist()
 
             # Should have metadata
@@ -225,10 +238,11 @@ class TestWheelMetadata:
             # Should have the compiled extension
             assert any(".so" in f or ".pyd" in f for f in files)
 
-    def test_wheel_has_correct_name(self, tmp_path, requires_nim):
+    def test_wheel_has_correct_name(self, tmp_path):
         """Test that wheel filename follows conventions."""
         fixture_path = Path(__file__).parent.parent / "fixtures" / "projects" / "simple"
         import shutil
+
         project_path = tmp_path / "name_test"
         shutil.copytree(fixture_path, project_path)
 

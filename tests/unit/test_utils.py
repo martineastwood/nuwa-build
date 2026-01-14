@@ -1,15 +1,15 @@
 """Unit tests for utility functions."""
 
-import pytest
 import subprocess
-import sys
-from pathlib import Path
-from unittest.mock import patch, Mock
+from unittest.mock import patch
+
+import pytest
+
 from nuwa_build.utils import (
     check_nim_installed,
+    check_nimble_installed,
     get_platform_extension,
     get_wheel_tags,
-    check_nimble_installed,
     temp_directory,
     working_directory,
 )
@@ -18,7 +18,7 @@ from nuwa_build.utils import (
 class TestCheckNimInstalled:
     """Tests for Nim compiler detection."""
 
-    @patch('shutil.which')
+    @patch("shutil.which")
     def test_nim_found(self, mock_which):
         """Test when Nim is found in PATH."""
         mock_which.return_value = "/usr/bin/nim"
@@ -28,7 +28,7 @@ class TestCheckNimInstalled:
 
         mock_which.assert_called_with("nim")
 
-    @patch('shutil.which')
+    @patch("shutil.which")
     def test_nim_not_found(self, mock_which):
         """Test when Nim is not found in PATH."""
         mock_which.return_value = None
@@ -36,8 +36,8 @@ class TestCheckNimInstalled:
         with pytest.raises(RuntimeError, match="Nim compiler not found"):
             check_nim_installed()
 
-    @patch('shutil.which')
-    @patch('subprocess.run')
+    @patch("shutil.which")
+    @patch("subprocess.run")
     def test_nim_not_working(self, mock_run, mock_which):
         """Test when Nim exists but doesn't work."""
         mock_which.return_value = "/usr/bin/nim"
@@ -52,22 +52,25 @@ class TestCheckNimInstalled:
 class TestGetPlatformExtension:
     """Tests for platform-specific extension."""
 
-    @pytest.mark.parametrize("platform,expected", [
-        ("win32", ".pyd"),
-        ("linux", ".so"),
-        ("darwin", ".so"),
-    ])
+    @pytest.mark.parametrize(
+        "platform,expected",
+        [
+            ("win32", ".pyd"),
+            ("linux", ".so"),
+            ("darwin", ".so"),
+        ],
+    )
     def test_platform_extensions(self, platform, expected):
         """Test extension for different platforms."""
-        with patch('sys.platform', platform):
+        with patch("sys.platform", platform):
             assert get_platform_extension() == expected
 
 
 class TestGetWheelTags:
     """Tests for wheel tag generation."""
 
-    @patch('sysconfig.get_config_var')
-    @patch('sysconfig.get_platform')
+    @patch("sysconfig.get_config_var")
+    @patch("sysconfig.get_platform")
     def test_wheel_tags_format(self, mock_platform, mock_config_var):
         """Test wheel tag format."""
         mock_config_var.return_value = "cpython-310-x86_64-linux-gnu"
@@ -85,14 +88,14 @@ class TestGetWheelTags:
 class TestCheckNimbleInstalled:
     """Tests for Nimble detection."""
 
-    @patch('shutil.which')
+    @patch("shutil.which")
     def test_nimble_found(self, mock_which):
         """Test when Nimble is found."""
         mock_which.return_value = "/usr/bin/nimble"
 
         assert check_nimble_installed() is True
 
-    @patch('shutil.which')
+    @patch("shutil.which")
     def test_nimble_not_found(self, mock_which):
         """Test when Nimble is not found."""
         mock_which.return_value = None
