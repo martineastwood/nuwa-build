@@ -73,7 +73,9 @@ jobs:
 
       - name: Install Nim (Windows)
         if: runner.os == 'Windows'
-        run: choco install nim -y
+        run: |
+          choco install nim -y
+          echo "C:\Program Files\Nim" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Install Nim (Unix)
         if: runner.os != 'Windows'
