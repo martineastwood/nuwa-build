@@ -28,6 +28,7 @@ nimble install nimpy
 ```
 
 **Requirements**:
+
 - Python 3.7+
 - Nim compiler (must be installed and available in your PATH)
 - nimpy library (install via `nimble install nimpy`)
@@ -42,6 +43,7 @@ cd my_project
 ```
 
 This creates:
+
 ```
 my_project/
 ├── pyproject.toml           # Python project config
@@ -160,15 +162,15 @@ nimble-deps = ["nimpy", "cligen >= 1.0.0"]
 
 ### Configuration Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `nim-source` | string | `"nim"` | Directory containing Nim source files |
-| `module-name` | string | Derived from project name | Python package name |
-| `lib-name` | string | `{module_name}_lib` | Internal compiled extension name |
-| `entry-point` | string | `{lib_name}.nim` | Main entry point file (relative to `nim-source`) |
-| `output-location` | string | `"auto"` | Where to place compiled extension (`"auto"`, `"src"`, or path) |
-| `nim-flags` | list | `[]` | Additional compiler flags |
-| `nimble-deps` | list | `[]` | Nimble packages to auto-install before build |
+| Option            | Type   | Default                   | Description                                                    |
+| ----------------- | ------ | ------------------------- | -------------------------------------------------------------- |
+| `nim-source`      | string | `"nim"`                   | Directory containing Nim source files                          |
+| `module-name`     | string | Derived from project name | Python package name                                            |
+| `lib-name`        | string | `{module_name}_lib`       | Internal compiled extension name                               |
+| `entry-point`     | string | `{lib_name}.nim`          | Main entry point file (relative to `nim-source`)               |
+| `output-location` | string | `"auto"`                  | Where to place compiled extension (`"auto"`, `"src"`, or path) |
+| `nim-flags`       | list   | `[]`                      | Additional compiler flags                                      |
+| `nimble-deps`     | list   | `[]`                      | Nimble packages to auto-install before build                   |
 
 **Note**: The entry point filename determines the Python module name of the compiled extension. If your entry point is `my_package_lib.nim`, the module will be importable as `my_package_lib`.
 
@@ -261,6 +263,7 @@ def validate_dataframe(df, column_name):
 ```
 
 This allows you to:
+
 - Use Python to extract/prepare data (e.g., from pandas DataFrames)
 - Pass pointers/arrays to Nim for zero-copy processing
 - Return results back to Python for formatting
@@ -270,6 +273,7 @@ This allows you to:
 Nim's module system handles dependencies automatically. Use `include` to add code from other Nim files:
 
 **nim/my_package_lib.nim:**
+
 ```nim
 import nimpy
 include helpers  # Include helpers.nim from same directory
@@ -282,6 +286,7 @@ proc add(a: int, b: int): int {.exportpy.} =
 ```
 
 **nim/helpers.nim:**
+
 ```nim
 proc make_greeting(name: string): string =
   return "Hello, " & name & "!"
@@ -326,87 +331,10 @@ print(sum_result)  # 15
 6. **Output**: Generates proper `{lib_name}.so` (Linux/Mac) or `{lib_name}.pyd` (Windows) in the module directory
 7. **Ready to use**: Module is immediately importable from the project root
 
-## For Maintainers: Publishing Releases
-
-### Creating a Release
-
-To publish a new version of nuwa-build to PyPI:
-
-1. **Update the version** in `pyproject.toml`:
-   ```toml
-   version = "0.2.0"  # Bump version
-   ```
-
-2. **Create a git tag**:
-   ```bash
-   git tag v0.2.0
-   git push origin v0.2.0
-   ```
-
-3. **GitHub Actions will automatically**:
-   - Build the package (both wheel and source distribution)
-   - Publish to PyPI using trusted publishing
-
-### Setting Up PyPI Trusted Publishing
-
-First time setup (one-time):
-
-1. Go to https://pypi.org/manage/account/publishing/
-2. Add a new publisher:
-   - **PyPI Project Name**: `nuwa-build`
-   - **Owner**: Your GitHub username
-   - **Repository name**: `nuwa-build`
-   - **Workflow name**: `publish.yml`
-   - **Environment name**: `pypi`
-
-3. GitHub Actions will now be able to publish to PyPI without storing API tokens!
-
-### Manual Publishing (if needed)
-
-If you need to publish manually:
-
-```bash
-# Build
-python -m build
-
-# Publish (requires twine)
-pip install twine
-twine upload dist/*
-```
-
-## Development
-
-### Setting Up for Development
-
-```bash
-# Clone the repo
-git clone https://github.com/martineastwood/nuwa-build
-cd nuwa-build
-
-# Install in development mode
-pip install -e .
-
-# Install nimpy if needed
-nimble install nimpy
-
-# Run tests
-# (tests not yet implemented)
-```
-
-### Architecture
-
-Nuwa Build is organized into several modules:
-
-- **`config.py`** - Configuration parsing and validation
-- **`discovery.py`** - Source file discovery
-- **`utils.py`** - Utility functions (platform detection, validation)
-- **`wheel_utils.py`** - Wheel building helpers
-- **`backend.py`** - Core compilation and PEP 517/660 hooks
-- **`cli.py`** - Command-line interface
-
 ### Contributing
 
 Contributions are welcome! The codebase is well-organized with:
+
 - Full type hints
 - Comprehensive error handling
 - Proper logging support
@@ -429,12 +357,14 @@ Install from https://nim-lang.org/install.html if needed.
 You need to install the nimpy library. You can either:
 
 **Option 1: Auto-install via configuration** (Recommended)
+
 ```toml
 [tool.nuwa]
 nimble-deps = ["nimpy"]
 ```
 
 **Option 2: Manual installation**
+
 ```bash
 nimble install nimpy
 ```
