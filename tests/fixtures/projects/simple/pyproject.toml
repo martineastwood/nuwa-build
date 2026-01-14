@@ -11,3 +11,4 @@ nim-source = "nim"
 module-name = "simple_test"
 lib-name = "simple_test_lib"
 entry-point = "lib.nim"
+nimble-deps = ["nimpy"]
