@@ -110,8 +110,11 @@ def _build_nim_command(
 
     # Add local nimble path for isolated dependencies
     if nimble_path:
-        # Nimble stores packages in 'pkgs' subdirectory
-        pkgs_path = nimble_path / "pkgs"
+        # Nimble stores packages in 'pkgs' (older) or 'pkgs2' (newer) subdirectory
+        # Check pkgs2 first (preferred in newer nimble versions), then fall back to pkgs
+        pkgs_path = nimble_path / "pkgs2"
+        if not pkgs_path.exists():
+            pkgs_path = nimble_path / "pkgs"
         if pkgs_path.exists():
             cmd.append(f"--nimblePath:{pkgs_path}")
 
