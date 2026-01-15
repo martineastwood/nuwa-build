@@ -246,6 +246,27 @@ nuwa watch --module-name my_module
 nuwa watch --nim-source my_nim_dir
 ```
 
+### `nuwa clean`
+
+Clean build artifacts and dependencies:
+
+```bash
+# Clean everything (dependencies + artifacts)
+nuwa clean
+
+# Clean only dependencies (.nimble/ directory)
+nuwa clean --deps
+
+# Clean only build artifacts and cache
+nuwa clean --artifacts
+```
+
+**What gets cleaned:**
+
+- `--deps`: Removes the `.nimble/` directory (local Nimble packages)
+- `--artifacts`: Removes `nimcache/`, `build/`, `dist/` directories and compiled `.so`/`.pyd` files
+- (no flags): Cleans both dependencies and artifacts
+
 ## Entry Point Discovery
 
 If `entry-point` is not specified, Nuwa will automatically discover the main entry point using this priority:
