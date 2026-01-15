@@ -78,7 +78,7 @@ pip install pytest
 pytest
 ```
 
-**Note**: No `pip install -e .` needed! With flat layout, you can run `python example.py` and `pytest` directly after compiling.
+**Note**: No `pip install -e .` needed due to flat project layout. You can run `python example.py` and `pytest` directly after compiling the default template project.
 
 ### 🤖 AI-Assisted Development
 
