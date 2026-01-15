@@ -4,7 +4,7 @@ Build Python extensions with Nim using zero-configuration tooling.
 
 ## Status
 
-- This is currently in alpha and subject to change
+🚧 **Work In Progress:** This library is currently under active development. APIs may change, and things might break. Use at your own risk!
 
 ## Features
 
@@ -37,7 +37,7 @@ nimble install nimpy
 
 ## Quick Start
 
-### 1. Create a New Project
+### Create a New Project
 
 ```bash
 nuwa new my_project
@@ -61,7 +61,7 @@ my_project/
 └── README.md
 ```
 
-### 2. Build and Test
+### Build and Test
 
 ```bash
 # Compile debug build
@@ -80,7 +80,26 @@ pytest
 
 **Note**: No `pip install -e .` needed! With flat layout, you can run `python example.py` and `pytest` directly after compiling.
 
-### 3. Watch Mode
+### 🤖 AI-Assisted Development
+
+This project includes a `skill.md` file designed to teach AI coding agents (Cursor, Antigravity, Copilot, etc.) how to work with Nuwa Build.
+
+**Why use it?**
+
+Standard LLMs often assume Python extensions require `setup.py` or `pip install -e .`. The `skill.md` file provides your agent with the correct context to:
+
+- **Understand the flat layout:** Knows that `.so` files are generated directly in the package directory.
+- **Use correct commands:** Enforces `nuwa develop` and `nuwa watch` instead of standard pip commands.
+- **Write correct Nim:** Reminds the agent to use `include` for shared libraries and `{.exportpy.}` for bindings.
+
+**How to use:**
+
+1. **Claude Code:** Copy the `skill.md` file into `~/.claude/skills/nuwa-build/` for global use or `<workspace-root>/.claude/skills/nuwa-build/` for project-specific use.
+2. **Antigravity:** Copy the `skill.md` file into `~/.gemini/antigravity/skills/nuwa-build/` for global use or `<workspace-root>/.agent/skills/nuwa-build/` for project-specific use.
+3. **Cursor:** Copy the `skill.md` file into `~/.cursor/skills/nuwa-build/` for global use or `<workspace-root>/.cursor/skills/nuwa-build/` for project-specific use.
+4. **General Chat:** Upload or paste `skill.md` into your context window when starting a new session.
+
+### Watch Mode
 
 For development, use watch mode to automatically recompile when you change Nim files:
 
@@ -95,7 +114,7 @@ nuwa watch --run-tests
 nuwa watch --release
 ```
 
-### 4. Install and Distribute
+### Install and Distribute
 
 ```bash
 # Build a wheel
