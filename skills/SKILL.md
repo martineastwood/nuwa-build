@@ -39,7 +39,7 @@ project_root/
 
 ## Capabilities & Commands
 
-### 1. Creating a New Project
+### Creating a New Project
 
 If the user asks to start a new project, run:
 
@@ -51,7 +51,7 @@ nuwa new <project_name>
 - If the user specifies a custom Python package name different from the folder, use `--name <name>`.
 - **Important**: Project names with hyphens need `--name` to specify a valid Python identifier.
 
-### 2. Building & Developing
+### Building & Developing
 
 **Do not** use `python setup.py build`, use nuwa commands instead:
 
@@ -60,11 +60,16 @@ nuwa new <project_name>
 - **Watch Mode:** Run `nuwa watch` to auto-recompile on file changes.
 - **Watch + Test:** Run `nuwa watch --run-tests` to run pytest after every compile.
 
-### 3. Running Code
+### Running Code
 
 - **After Building:** You can run Python scripts directly (e.g., `python example.py`) without installing the package, because the `.so` file is placed inside the Python package directory.
 - **Testing:** Run `pytest`. The flat layout allows pytest to discover the compiled module automatically.
 - **No Installation Needed**: The flat layout means you don't need `pip install -e .` for development.
+
+### Maintenance
+
+- **Cleaning:** Run `nuwa clean` to remove build artifacts.
+- **Deep Clean:** Run `nuwa clean --deps` to remove installed Nimble dependencies.
 
 ## Configuration (`pyproject.toml`)
 

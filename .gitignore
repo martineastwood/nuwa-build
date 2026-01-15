@@ -219,3 +219,4 @@ nuwa.code-workspace
 CLAUDE.md
 /.claude
 repomix-output.xml
+.nimble/
