@@ -10,7 +10,7 @@ else:
     try:
         import tomli as tomllib
     except ImportError:
-        tomllib = None  # type: ignore[assignment]
+        tomllib = None  # type: ignore[assignment, unused-ignore]
 
 
 def get_default_config(project_name: str = "nuwa_project") -> Dict[str, Any]:
@@ -75,7 +75,8 @@ def load_pyproject_toml() -> Dict[str, Any]:
 
     try:
         with open("pyproject.toml", "rb") as f:
-            return tomllib.load(f)
+            data: Dict[str, Any] = tomllib.load(f)
+            return data
     except FileNotFoundError:
         return {}
 

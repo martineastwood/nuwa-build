@@ -90,6 +90,12 @@ jobs:
       - name: Verify Nim installation
         run: nim --version
 
+      - name: Cache Nimble dependencies
+        uses: actions/cache@v3
+        with:
+          path: .nimble
+          key: ${{ runner.os }}-nimble-${{ hashFiles('**/pyproject.toml') }}
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip

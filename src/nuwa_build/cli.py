@@ -117,6 +117,100 @@ def run_develop(args: argparse.Namespace) -> None:
         sys.exit(f"❌ Error: {e}")
 
 
+def run_clean(args: argparse.Namespace) -> None:
+    """Clean build artifacts and dependencies.
+
+    Args:
+        args: Parsed command-line arguments
+    """
+    import shutil
+
+    cleaned = []
+    errors = []
+
+    # Determine what to clean based on flags
+    clean_all = not (args.deps or args.artifacts)
+
+    # Helper to safely remove a directory
+    def safe_remove_dir(path: Path, name: str) -> None:
+        """Safely remove a directory if it exists."""
+        if path.exists() and path.is_dir():
+            try:
+                shutil.rmtree(path)
+                cleaned.append(f"{name}/")
+            except Exception as e:
+                errors.append(f"{name}/: {e}")
+
+    # Helper to safely remove a file
+    def safe_remove_file(path: Path) -> None:
+        """Safely remove a file if it exists and is not a symlink."""
+        if path.exists() and path.is_file():
+            # Skip symlinks to avoid deleting the target
+            if path.is_symlink():
+                return
+            try:
+                path.unlink()
+                # Try to get relative path, fall back to absolute if it fails
+                try:
+                    display_path = str(path.relative_to(Path.cwd()))
+                except ValueError:
+                    display_path = str(path)
+                cleaned.append(display_path)
+            except Exception as e:
+                errors.append(f"{path}: {e}")
+
+    # Clean .nimble/ directory
+    if clean_all or args.deps:
+        safe_remove_dir(Path.cwd() / ".nimble", ".nimble")
+
+    # Clean nimcache/ directory
+    if clean_all or args.artifacts:
+        safe_remove_dir(Path.cwd() / "nimcache", "nimcache")
+
+    # Clean build/ directory
+    if clean_all or args.artifacts:
+        safe_remove_dir(Path.cwd() / "build", "build")
+
+    # Clean dist/ directory
+    if clean_all or args.artifacts:
+        safe_remove_dir(Path.cwd() / "dist", "dist")
+
+    # Clean compiled artifacts - only in Nuwa-managed locations
+    if clean_all or args.artifacts:
+        try:
+            from .config import parse_nuwa_config
+
+            config = parse_nuwa_config()
+            lib_name = config.get("lib_name", "")
+            module_name = config.get("module_name", "")
+            ext = ".pyd" if sys.platform == "win32" else ".so"
+
+            # Only remove the specific compiled extension that Nuwa generates
+            if lib_name:
+                # Check in common output locations
+                for output_dir in [Path(module_name), Path("src") / module_name]:
+                    if output_dir.exists():
+                        ext_file = output_dir / f"{lib_name}{ext}"
+                        safe_remove_file(ext_file)
+
+        except Exception as e:
+            # If config loading fails, skip artifact cleaning to be safe
+            errors.append(f"Could not load config for artifact cleaning: {e}")
+
+    # Print results
+    if cleaned:
+        print("🧹 Cleaned:")
+        for item in cleaned:
+            print(f"   ✓ {item}")
+    else:
+        print("✨ Nothing to clean")
+
+    if errors:
+        print("\n⚠️ Errors:")
+        for error in errors:
+            print(f"   {error}")
+
+
 def run_watch(args: argparse.Namespace) -> None:
     """Watch for file changes and recompile automatically.
 
@@ -267,6 +361,13 @@ def main() -> None:
         help="Additional Nim compiler flags (can be used multiple times)",
     )
 
+    # clean command
+    cmd_clean = subparsers.add_parser("clean", help="Clean build artifacts and dependencies")
+    cmd_clean.add_argument("--deps", action="store_true", help="Only clean .nimble/ dependencies")
+    cmd_clean.add_argument(
+        "--artifacts", action="store_true", help="Only clean build artifacts and cache"
+    )
+
     # watch command
     cmd_watch = subparsers.add_parser("watch", help="Watch for changes and recompile")
     cmd_watch.add_argument("-r", "--release", action="store_true", help="Build in release mode")
@@ -293,6 +394,8 @@ def main() -> None:
         run_new(args)
     elif args.command == "develop":
         run_develop(args)
+    elif args.command == "clean":
+        run_clean(args)
     elif args.command == "watch":
         run_watch(args)
 

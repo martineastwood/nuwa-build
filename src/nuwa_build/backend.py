@@ -78,7 +78,12 @@ def _determine_inplace_output(module_name: str, config: dict) -> Path:
 
 
 def _build_nim_command(
-    entry_point: Path, output_path: Path, build_type: str, nim_flags: List, nim_dir: Path
+    entry_point: Path,
+    output_path: Path,
+    build_type: str,
+    nim_flags: List,
+    nim_dir: Path,
+    nimble_path: Optional[Path] = None,
 ) -> List[str]:
     """Build the Nim compiler command.
 
@@ -88,6 +93,7 @@ def _build_nim_command(
         build_type: "debug" or "release"
         nim_flags: Additional compiler flags from config
         nim_dir: Nim source directory (for module path)
+        nimble_path: Optional path to local nimble packages directory
 
     Returns:
         List of command arguments
@@ -101,6 +107,13 @@ def _build_nim_command(
 
     # Add module search path (so imports work between Nim files)
     cmd.append(f"--path:{nim_dir}")
+
+    # Add local nimble path for isolated dependencies
+    if nimble_path:
+        # Nimble stores packages in 'pkgs' subdirectory
+        pkgs_path = nimble_path / "pkgs"
+        if pkgs_path.exists():
+            cmd.append(f"--nimblePath:{pkgs_path}")
 
     # Add release flag
     if build_type == "release":
@@ -142,10 +155,14 @@ def _compile_nim(
     if config_overrides:
         config = merge_cli_args(config, config_overrides)
 
-    # Install nimble dependencies if configured
+    # Define local nimble path for project-level isolation
+    project_root = Path.cwd()
+    local_nimble_path = project_root / ".nimble"
+
+    # Install nimble dependencies to local directory if configured
     nimble_deps = config.get("nimble_deps", [])
     if nimble_deps:
-        install_nimble_dependencies(nimble_deps)
+        install_nimble_dependencies(nimble_deps, local_dir=local_nimble_path)
 
     # Discover sources
     nim_dir, entry_point = discover_nim_sources(config)
@@ -173,6 +190,7 @@ def _compile_nim(
         build_type=build_type,
         nim_flags=config["nim_flags"],
         nim_dir=nim_dir,
+        nimble_path=local_nimble_path,
     )
 
     # Run compilation

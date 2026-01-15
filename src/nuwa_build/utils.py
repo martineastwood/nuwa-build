@@ -6,6 +6,7 @@ import sys
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Optional
 
 
 def check_nim_installed() -> None:
@@ -130,11 +131,12 @@ def check_nimble_installed() -> bool:
     return shutil.which("nimble") is not None
 
 
-def install_nimble_dependencies(deps: list) -> None:
+def install_nimble_dependencies(deps: list, local_dir: Optional[Path] = None) -> None:
     """Install missing nimble dependencies.
 
     Args:
         deps: List of nimble package names or specs (e.g., ["nimpy", "cligen >= 1.0.0"])
+        local_dir: Optional path to local nimble directory (for project-level isolation)
 
     Raises:
         RuntimeError: If nimble is not installed or installation fails.
@@ -149,37 +151,59 @@ def install_nimble_dependencies(deps: list) -> None:
             "Visit https://nim-lang.org/install.html for instructions."
         )
 
-    # Get list of installed packages
-    try:
-        result = subprocess.run(
-            ["nimble", "list", "-i"], capture_output=True, text=True, check=False
-        )
-        installed = result.stdout.lower()
-    except Exception:
-        installed = ""
+    # When using a local directory, we skip the "already installed" check
+    # since checking against a custom nimbleDir is complex.
+    # We rely on nimble's internal caching to skip re-installation if already present.
+    deps_to_install = deps
 
-    # Extract package names from dependency specs (remove version constraints)
-    deps_to_install = []
-    for dep in deps:
-        # Extract package name (first word, before version specs)
-        pkg_name = dep.split()[0].lower()
-        if pkg_name not in installed:
-            deps_to_install.append(dep)
+    if local_dir:
+        # Enforce project-level isolation
+        local_dir_abs = local_dir.resolve()
+        # Create the directory if it doesn't exist
+        local_dir_abs.mkdir(parents=True, exist_ok=True)
+        print(f"📦 Installing dependencies to {local_dir}...")
+    else:
+        # Get list of installed packages for global installs
+        try:
+            result = subprocess.run(
+                ["nimble", "list", "-i"], capture_output=True, text=True, check=False
+            )
+            installed = result.stdout.lower()
+        except Exception:
+            installed = ""
 
-    # Skip if all dependencies are already installed
-    if not deps_to_install:
-        return
+        # Extract package names from dependency specs (remove version constraints)
+        deps_to_install = []
+        for dep in deps:
+            # Extract package name (first word, before version specs)
+            pkg_name = dep.split()[0].lower()
+            if pkg_name not in installed:
+                deps_to_install.append(dep)
 
-    print(f"📦 Installing nimble dependencies: {', '.join(deps_to_install)}")
+        # Skip if all dependencies are already installed
+        if not deps_to_install:
+            return
+
+        print(f"📦 Installing nimble dependencies globally: {', '.join(deps_to_install)}")
+
+    # Build base install command
+    install_args = ["nimble", "install", "-y"]
+    if local_dir:
+        # Set environment variable to override nimble directory
+        import os
+
+        env = os.environ.copy()
+        env["NIMBLE_DIR"] = str(local_dir)
 
     # Try to install each dependency
-    # We use 'nimble install -y' to auto-accept prompts
     for dep in deps_to_install:
         print(f"  Installing {dep}...")
         try:
-            result = subprocess.run(
-                ["nimble", "install", "-y", dep], capture_output=True, text=True, check=False
-            )
+            cmd = install_args + [dep]
+            if local_dir:
+                result = subprocess.run(cmd, capture_output=True, text=True, check=False, env=env)
+            else:
+                result = subprocess.run(cmd, capture_output=True, text=True, check=False)
 
             if result.returncode != 0:
                 # Check if it's already installed (nimble returns non-zero if already installed)
@@ -191,7 +215,8 @@ def install_nimble_dependencies(deps: list) -> None:
                 else:
                     print(f"    ⚠ Failed to install {dep}")
                     print(f"    Output: {result.stdout}")
-                    print(f"    Errors: {result.stderr}")
+                    if result.stderr:
+                        print(f"    Errors: {result.stderr}")
                     # Don't fail hard, just warn
             else:
                 print(f"    ✓ {dep} installed successfully")
