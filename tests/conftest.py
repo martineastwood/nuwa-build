@@ -62,12 +62,12 @@ def sample_nim_file(temp_project):
 
     lib_file = nim_dir / "test_lib.nim"
     lib_file.write_text(
-        """import nimpy
+        """import nuwa_sdk
 
-proc greet(name: string): string {.exportpy.} =
+proc greet(name: string): string {.nuwa_export.} =
   return "Hello, " & name
 
-proc add(a: int, b: int): int {.exportpy.} =
+proc add(a: int, b: int): int {.nuwa_export.} =
   return a + b
 """
     )

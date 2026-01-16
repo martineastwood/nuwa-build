@@ -18,7 +18,7 @@ module-name = "{module_name}"
 lib-name = "{module_name}_lib"
 entry-point = "{module_name}_lib.nim"
 # Nimble dependencies (auto-installed before build)
-nimble-deps = ["nimpy"]
+nimble-deps = ["nimpy", "nuwa_sdk"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -29,14 +29,14 @@ LIB_NIM = """# Main entry point for {module_name}_lib
 # This file compiles into the Python extension module
 # Note: The filename determines the Python module name
 
-import nimpy
+import nuwa_sdk  # Provides nuwa_export for automatic type stub generation
 include helpers  # Include additional modules from nim/ directory
 
-proc greet(name: string): string {{.exportpy.}} =
+proc greet(name: string): string {{.nuwa_export.}} =
   ## Greet someone by name
   return make_greeting(name)
 
-proc add(a: int, b: int): int {{.exportpy.}} =
+proc add(a: int, b: int): int {{.nuwa_export.}} =
   ## Add two integers together
   return a + b
 """
@@ -171,6 +171,13 @@ README_MD = """# {project_name}
 
 A Nim extension for Python built with [Nuwa Build](https://github.com/martineastwood/nuwa-build).
 
+## Features
+
+- ✅ **Zero-configuration** build system
+- ✅ **Automatic type stubs** (`.pyi` files) for IDE autocomplete
+- ✅ **Fast Nim compilation** with easy Python integration
+- ✅ **Editable installs** for rapid development
+
 ## Installation
 
 ```bash
@@ -180,10 +187,10 @@ pip install .
 ## Development
 
 ```bash
-# Compile debug build
+# Compile debug build (generates .so and .pyi files)
 nuwa develop
 
-# Compile release build
+# Compile release build (optimized)
 nuwa develop --release
 
 # Run example
@@ -192,6 +199,21 @@ python example.py
 # Run tests (requires pytest)
 pip install pytest
 pytest
+```
+
+## Type Stubs
+
+This project automatically generates Python type stubs (`.pyi` files) during compilation. This means:
+
+- ✨ **IDE autocomplete**: Your editor shows exact function signatures
+- 🔍 **Type checking**: `mypy` and `pyright` can check your code
+- 📖 **Documentation**: Docstrings appear in hover tooltips
+
+Example type stub for `add`:
+```python
+def add(a: int, b: int) -> int:
+    \"\"\"Add two integers together\"\"\"
+    ...
 ```
 
 ## Project Structure
@@ -203,7 +225,8 @@ pytest
 │   └── helpers.nim              # Additional modules
 ├── {module_name}/               # Python package
 │   ├── __init__.py              # Package wrapper (can add Python code here)
-│   └── {module_name}_lib.so     # Compiled Nim extension (generated)
+│   ├── {module_name}_lib.so     # Compiled Nim extension (generated)
+│   └── {module_name}_lib.pyi    # Type stubs (generated)
 ├── tests/                       # Test files
 │   └── test_{module_name}.py    # Pytest tests
 ├── example.py                   # Example usage
@@ -218,12 +241,36 @@ Python package. Your `__init__.py` imports from it and can add Python wrappers.
 ```python
 import {module_name}
 
-# Call Nim-compiled functions
+# Call Nim-compiled functions (with full IDE support!)
 result = {module_name}.greet("World")
 print(result)  # "Hello, World!"
 
 sum_result = {module_name}.add(5, 10)
 print(sum_result)  # 15
+```
+
+## Adding New Functions
+
+1. Edit `nim/{module_name}_lib.nim`:
+```nim
+import nuwa_sdk
+
+proc my_function(x: int, y: int): string {{.nuwa_export.}} =
+  ## Your function documentation
+  return "Result: " & $(x + y)
+```
+
+2. Recompile:
+```bash
+nuwa develop
+```
+
+3. Use from Python (with full autocomplete):
+```python
+from {module_name} import my_function
+
+# Your IDE shows: my_function(x: int, y: int) -> str
+result = my_function(5, 10)
 ```
 
 ## Testing

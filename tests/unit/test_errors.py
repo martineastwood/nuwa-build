@@ -29,12 +29,12 @@ class TestParseNimError:
 
     def test_parse_warning(self):
         """Test parsing a warning."""
-        stderr = "hint.nim(12, 10) Hint: add 'exportpy' pragma"
+        stderr = "hint.nim(12, 10) Hint: add 'nuwa_export' pragma"
 
         result = parse_nim_error(stderr)
         assert result is not None
         assert result["level"] == "Hint"
-        assert result["message"] == "add 'exportpy' pragma"
+        assert result["message"] == "add 'nuwa_export' pragma"
 
     def test_parse_multiline_stderr(self):
         """Test parsing when stderr has multiple lines."""
@@ -129,13 +129,21 @@ class TestGetSuggestions:
         assert len(suggestions) > 0
         assert any("typos" in s.lower() for s in suggestions)
 
-    def test_exportpy_suggestions(self):
-        """Test suggestions for exportpy pragma errors."""
+    def test_nuwa_export_suggestions(self):
+        """Test suggestions for nuwa_export pragma errors."""
+        suggestions = get_suggestions("invalid pragma: nuwa_export")
+
+        assert len(suggestions) > 0
+        assert any("nuwa_sdk" in s.lower() for s in suggestions)
+        assert any("import" in s.lower() for s in suggestions)
+
+    def test_exportpy_suggestions_legacy(self):
+        """Test suggestions for legacy exportpy pragma errors."""
         suggestions = get_suggestions("invalid pragma: exportpy")
 
         assert len(suggestions) > 0
-        assert any("nimpy" in s.lower() for s in suggestions)
-        assert any("import" in s.lower() for s in suggestions)
+        # Should suggest using nuwa_export instead
+        assert any("nuwa_export" in s.lower() for s in suggestions)
 
     def test_no_suggestions_for_unknown_error(self):
         """Test that unknown errors return empty list."""

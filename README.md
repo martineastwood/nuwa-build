@@ -90,7 +90,7 @@ Standard LLMs often assume Python extensions require `setup.py` or `pip install 
 
 - **Understand the flat layout:** Knows that `.so` files are generated directly in the package directory.
 - **Use correct commands:** Enforces `nuwa develop` and `nuwa watch` instead of standard pip commands.
-- **Write correct Nim:** Reminds the agent to use `include` for shared libraries and `{.exportpy.}` for bindings.
+- **Write correct Nim:** Reminds the agent to use `include` for shared libraries and `{.nuwa_export.}` for bindings (which automatically generates type stubs).
 
 **How to use:**
 
@@ -317,13 +317,13 @@ Nim's module system handles dependencies automatically. Use `include` to add cod
 **nim/my_package_lib.nim:**
 
 ```nim
-import nimpy
+import nuwa_sdk  # Provides nuwa_export for automatic type stub generation
 include helpers  # Include helpers.nim from same directory
 
-proc greet(name: string): string {.exportpy.} =
+proc greet(name: string): string {.nuwa_export.} =
   return make_greeting(name)
 
-proc add(a: int, b: int): int {.exportpy.} =
+proc add(a: int, b: int): int {.nuwa_export.} =
   return a + b
 ```
 
@@ -337,6 +337,19 @@ proc make_greeting(name: string): string =
 Compile `my_package_lib.nim` and both modules are included in the final `.so`/`.pyd` file.
 
 **Important**: Use `include` (not `import`) when building shared libraries. The `include` directive literally includes the code at compile time, while `import` creates a separate module namespace.
+
+### Exporting Functions to Python
+
+**You must add the `{.nuwa_export.}` pragma to any Nim procedure you want to access from Python.**
+
+- ✅ **Exported**: `proc add(a: int, b: int): int {.nuwa_export.}` - Accessible from Python
+- ❌ **Not exported**: `proc add(a: int, b: int): int` - Not accessible from Python
+
+The `{.nuwa_export.}` pragma does two things:
+1. Makes the function callable from Python (via the underlying nimpy library)
+2. Generates type stub information for IDE autocomplete and type checking
+
+**Common mistake**: Forgetting the pragma means your function won't be available in Python, even though it compiles successfully.
 
 ## Output Location
 

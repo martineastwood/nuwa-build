@@ -10,6 +10,7 @@ from typing import List, Optional, Tuple
 from .config import load_pyproject_toml, merge_cli_args, parse_nuwa_config
 from .discovery import discover_nim_sources, validate_nim_project
 from .errors import format_compilation_error, format_compilation_success
+from .stubs import StubGenerator
 from .utils import (
     check_nim_installed,
     get_platform_extension,
@@ -133,7 +134,9 @@ def _build_nim_command(
 
 
 def _compile_nim(
-    build_type: str = "release", inplace: bool = False, config_overrides: Optional[dict] = None
+    build_type: str = "release",
+    inplace: bool = False,
+    config_overrides: Optional[dict] = None,
 ) -> Path:
     """Compile the Nim extension.
 
@@ -227,6 +230,17 @@ def _compile_nim(
     # Success
     logger.debug(f"Successfully compiled {out_path}")
     print(format_compilation_success(out_path))
+
+    # Generate type stubs from compiler output
+    generator = StubGenerator(lib_name)
+    stub_count = generator.parse_compiler_output(result.stdout)
+
+    if stub_count > 0:
+        generator.generate_pyi(out_path.parent)
+        logger.info(f"Generated {stub_count} type stubs for {lib_name}")
+    else:
+        logger.debug("No stub metadata found in compiler output (nuwa_sdk not used?)")
+
     return out_path
 
 
@@ -271,12 +285,21 @@ def build_wheel(
         # Place .so file inside the package directory
         zf.write(so_file, arcname=f"{name}/{lib_name}{ext}")
 
+        # Include type stubs (.pyi files) if they exist
+        pyi_file = so_file.with_suffix(".pyi")
+        if pyi_file.exists():
+            zf.write(pyi_file, arcname=f"{name}/{lib_name}.pyi")
+            logger.info(f"Including type stubs: {lib_name}.pyi")
+
         # Write metadata
         write_wheel_metadata(zf, name, version)
 
-    # Cleanup compiled artifact after packing
+    # Cleanup compiled artifacts after packing
     if so_file.exists():
         so_file.unlink()
+    pyi_file = so_file.with_suffix(".pyi")
+    if pyi_file.exists():
+        pyi_file.unlink()
 
     return wheel_path.name
 
@@ -348,16 +371,22 @@ def build_editable(
 
 
 # Boilerplate required hooks
-def get_requires_for_build_wheel(config_settings: Optional[dict] = None) -> list:  # noqa: ARG001
+def get_requires_for_build_wheel(
+    config_settings: Optional[dict] = None,  # noqa: ARG001
+) -> list:
     """Return build requirements for wheels."""
     return []
 
 
-def get_requires_for_build_sdist(config_settings: Optional[dict] = None) -> list:  # noqa: ARG001
+def get_requires_for_build_sdist(
+    config_settings: Optional[dict] = None,  # noqa: ARG001
+) -> list:
     """Return build requirements for source distributions."""
     return []
 
 
-def get_requires_for_build_editable(config_settings: Optional[dict] = None) -> list:  # noqa: ARG001
+def get_requires_for_build_editable(
+    config_settings: Optional[dict] = None,  # noqa: ARG001
+) -> list:
     """Return build requirements for editable installs."""
     return []

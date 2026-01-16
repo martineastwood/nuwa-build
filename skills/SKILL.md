@@ -125,16 +125,16 @@ This flat layout allows immediate testing without installation. The compiled ext
 
 ### Basic Export Pattern
 
-- **Import nimpy:** All Nim files interacting with Python must `import nimpy`.
-- **Exporting:** Use `{.exportpy.}` pragma to expose Nim procedures to Python.
+- **Import nuwa_sdk:** All Nim files should `import nuwa_sdk` for automatic type stub generation.
+- **Exporting:** Use `{.nuwa_export.}` pragma to expose Nim procedures to Python (this automatically generates type stubs).
 
 ```nim
-import nimpy
+import nuwa_sdk
 
-proc add(a: int, b: int): int {.exportpy.} =
+proc add(a: int, b: int): int {.nuwa_export.} =
   return a + b
 
-proc greet(name: string): string {.exportpy.} =
+proc greet(name: string): string {.nuwa_export.} =
   return "Hello, " & name & "!"
 ```
 
@@ -158,10 +158,10 @@ Use `include` (not `import`) for shared library builds:
 **nim/my_package_lib.nim:**
 
 ```nim
-import nimpy
+import nuwa_sdk
 include helpers  # Include helpers.nim from same directory
 
-proc greet(name: string): string {.exportpy.} =
+proc greet(name: string): string {.nuwa_export.} =
   return make_greeting(name)
 ```
 

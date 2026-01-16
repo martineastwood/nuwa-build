@@ -94,17 +94,23 @@ ERROR_SUGGESTIONS = {
         "Ensure the module is in your Nim path",
         "Check that all 'include'd files exist",
     ],
-    # Nimpy specific
-    "nimpy": [
-        "Install nimble package: nimble install nimpy",
-        "Import nimpy: import nimpy",
-        "Make sure proc has {.exportpy.} pragma",
+    # Nuwa SDK specific
+    "nuwa_sdk": [
+        "Install nimble package: nimble install nuwa_sdk",
+        "Import nuwa_sdk: import nuwa_sdk",
+        "Make sure proc has {.nuwa_export.} pragma",
     ],
-    # Exportpy/pragma errors
+    # Nuwa export/pragma errors
+    "nuwa_export": [
+        "Make sure you imported nuwa_sdk: import nuwa_sdk",
+        "Install nimble package: nimble install nuwa_sdk",
+        "The {.nuwa_export.} pragma requires the nuwa_sdk module",
+    ],
+    # Legacy exportpy (for backward compatibility with error messages)
     "exportpy": [
-        "Make sure you imported nimpy: import nimpy",
-        "Install nimble package: nimble install nimpy",
-        "The {.exportpy.} pragma requires the nimpy module",
+        "Consider using {.nuwa_export.} instead (requires nuwa_sdk)",
+        "Install nimble package: nimble install nuwa_sdk",
+        "Import nuwa_sdk: import nuwa_sdk",
     ],
     "pragma": [
         "Check that the pragma name is spelled correctly",
