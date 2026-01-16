@@ -9,6 +9,7 @@ from pathlib import Path
 from .backend import _compile_nim
 from .templates import (
     EXAMPLE_PY,
+    GITHUB_ACTIONS_PUBLISH_YML,
     GITIGNORE,
     HELPERS_NIM,
     INIT_PY,
@@ -40,6 +41,7 @@ def run_new(args: argparse.Namespace) -> None:
         (path / "nim").mkdir(parents=True, exist_ok=True)
         (path / module_name).mkdir(parents=True, exist_ok=True)
         (path / "tests").mkdir(parents=True, exist_ok=True)
+        (path / ".github" / "workflows").mkdir(parents=True, exist_ok=True)
 
         # Write pyproject.toml
         with open(path / "pyproject.toml", "w", encoding="utf-8") as f:
@@ -63,6 +65,10 @@ def run_new(args: argparse.Namespace) -> None:
         # Write supporting files
         with open(path / ".gitignore", "w", encoding="utf-8") as f:
             f.write(GITIGNORE)
+
+        # Write GitHub Actions workflow
+        with open(path / ".github" / "workflows" / "publish.yml", "w", encoding="utf-8") as f:
+            f.write(GITHUB_ACTIONS_PUBLISH_YML)
 
         with open(path / "example.py", "w", encoding="utf-8") as f:
             f.write(EXAMPLE_PY.format(module_name=module_name))

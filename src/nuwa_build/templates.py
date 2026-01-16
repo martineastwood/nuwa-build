@@ -177,6 +177,7 @@ A Nim extension for Python built with [Nuwa Build](https://github.com/martineast
 - ✅ **Automatic type stubs** (`.pyi` files) for IDE autocomplete
 - ✅ **Fast Nim compilation** with easy Python integration
 - ✅ **Editable installs** for rapid development
+- ✅ **GitHub Actions** workflow for automated PyPI publishing
 
 ## Installation
 
@@ -220,6 +221,9 @@ def add(a: int, b: int) -> int:
 
 ```
 {project_name}/
+├── .github/
+│   └── workflows/
+│       └── publish.yml          # PyPI/PyCI publishing workflow
 ├── nim/                          # Nim source files
 │   ├── {module_name}_lib.nim    # Main entry point (filename = module name)
 │   └── helpers.nim              # Additional modules
@@ -290,4 +294,131 @@ pytest -v
 # Run specific test
 pytest tests/test_{module_name}.py::test_greet_world
 ```
+
+## Publishing to PyPI
+
+This project includes a GitHub Actions workflow (`.github/workflows/publish.yml`) that automatically builds and publishes wheels to PyPI when you push a version tag:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The workflow uses [cibuildwheel](https://github.com/pypa/cibuildwheel) to build wheels across multiple platforms (Linux, macOS, Windows) and Python versions, then publishes them to PyPI using [Trusted Publishing](https://docs.pypi.org/trusted-publishers/).
+
+### First-time Setup
+
+1. **Configure Trusted Publishing** on PyPI:
+   - Go to https://pypi.org/manage/account/publishing/
+   - Add a new publisher with:
+     - PyPI Project Name: `{project_name}`
+     - Owner: Your GitHub username/organization
+     - Repository name: Your repository name
+     - Workflow name: `publish.yml`
+
+2. **Push a tag** to trigger the workflow:
+   ```bash
+   git tag v1.0.0
+   git push origin v1.0.0
+   ```
+
+The workflow will automatically:
+- Build wheels for Linux, macOS, and Windows
+- Support Python 3.9, 3.10, 3.11, 3.12, and 3.13
+- Build a source distribution
+- Publish everything to PyPI
+"""
+
+
+GITHUB_ACTIONS_PUBLISH_YML = """name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build_wheels:
+    name: Wheel on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    env:
+      # Configure cibuildwheel to build for recent Python versions
+      CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-* cp313-*"
+      # Skip 32-bit builds and PyPy to save time
+      CIBW_SKIP: "pp* *-musllinux_* *i686"
+
+      # 1. LINUX: Install Nim inside the Docker container using yum/curl
+      # We install xz (for extracting) and gcc (for linking)
+      CIBW_BEFORE_ALL_LINUX: >
+        yum install -y xz curl gcc &&
+        curl -L https://nim-lang.org/download/nim-2.0.0-linux_x64.tar.xz -o nim.tar.xz &&
+        tar -xf nim.tar.xz &&
+        mv nim-2.0.0 /opt/nim &&
+        ln -s /opt/nim/bin/nim /usr/bin/nim
+
+      # 2. WINDOWS/MAC: Nim is installed on the host runner (outside Docker)
+      # We add it to PATH so the build script can find it
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Install Nim on Host (For Windows/Mac)
+      - name: Setup Nim (Host)
+        if: runner.os != 'Linux'
+        uses: jiro4989/setup-nim-action@v2
+        with:
+          nim-version: '2.0.0'
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.16.2
+        # cibuildwheel automatically runs 'pip wheel .' which triggers your backend
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
+          path: ./wheelhouse/*.whl
+
+  build_sdist:
+    name: Build source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Sdist needs Nim to run 'nimble install' if you have deps check enabled
+      - uses: jiro4989/setup-nim-action@v2
+        with:
+          nim-version: '2.0.0'
+
+      - name: Build sdist
+        run: |
+          pip install build
+          python -m build --sdist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cibw-sdist
+          path: dist/*.tar.gz
+
+  publish:
+    needs: [build_wheels, build_sdist]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/${{ github.event.repository.name }}
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cibw-*
+          merge-multiple: true
+          path: dist
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
 """
