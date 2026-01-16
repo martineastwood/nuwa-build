@@ -107,7 +107,7 @@ nim-source = "nim"
 module-name = "test_project"
 lib-name = "test_project_lib"
 entry-point = "test_lib.nim"
-nimble-deps = []
+nimble-deps = ["nimpy", "nuwa_sdk"]
 """
     )
     return pyproject
@@ -127,7 +127,7 @@ def mock_config():
         "entry_point": "test_lib.nim",
         "output_location": "auto",
         "nim_flags": [],
-        "nimble_deps": [],
+        "nimble_deps": ["nimpy", "nuwa_sdk"],
     }
 
 
