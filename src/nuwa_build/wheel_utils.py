@@ -21,7 +21,10 @@ def write_wheel_metadata(
     Returns:
         The dist-info directory name
     """
-    dist_info = f"{name}-{version}.dist-info"
+    # Normalize package name for dist-info directory
+    # Per PEP 427, dist-info directories must also use underscores
+    name_normalized = name.replace("-", "_")
+    dist_info = f"{name_normalized}-{version}.dist-info"
 
     zf.writestr(
         f"{dist_info}/WHEEL",
@@ -54,7 +57,13 @@ def build_wheel_file(
     Returns:
         The wheel filename
     """
-    wheel_name = get_wheel_tags(name, version) if tag is None else f"{name}-{version}-{tag}.whl"
+    # Normalize package name: replace hyphens with underscores
+    # Per PEP 427, wheel filenames must use underscores even if the package name uses hyphens
+    name_normalized = name.replace("-", "_")
+
+    wheel_name = (
+        get_wheel_tags(name, version) if tag is None else f"{name_normalized}-{version}-{tag}.whl"
+    )
 
     wheel_path = Path(wheel_directory) / wheel_name
 

@@ -356,8 +356,12 @@ def build_editable(
     # Extract metadata
     name, version = _extract_metadata()
 
+    # Normalize package name: replace hyphens with underscores
+    # Per PEP 427, wheel filenames must use underscores even if the package name uses hyphens
+    name_normalized = name.replace("-", "_")
+
     # Create editable wheel
-    wheel_name = f"{name}-{version}-py3-none-any.whl"
+    wheel_name = f"{name_normalized}-{version}-py3-none-any.whl"
     wheel_path = Path(wheel_directory) / wheel_name
 
     with zipfile.ZipFile(wheel_path, "w") as zf:

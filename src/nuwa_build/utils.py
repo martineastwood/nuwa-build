@@ -51,6 +51,10 @@ def get_wheel_tags(name: str, version: str) -> str:
     import sys
     import sysconfig
 
+    # Normalize package name: replace hyphens with underscores
+    # Per PEP 427, wheel filenames must use underscores even if the package name uses hyphens
+    name_normalized = name.replace("-", "_")
+
     # Python tag (e.g., "cp313")
     impl = sys.implementation.name
     version_str = f"{sys.version_info.major}{sys.version_info.minor}"
@@ -69,7 +73,7 @@ def get_wheel_tags(name: str, version: str) -> str:
     # Platform tag (e.g., "macosx_10_13_universal2")
     platform = sysconfig.get_platform().replace("-", "_").replace(".", "_")
 
-    return f"{name}-{version}-{python_tag}-{abi}-{platform}.whl"
+    return f"{name_normalized}-{version}-{python_tag}-{abi}-{platform}.whl"
 
 
 @contextmanager

@@ -353,17 +353,15 @@ jobs:
       # Skip 32-bit builds and PyPy to save time
       CIBW_SKIP: "pp* *-musllinux_* *i686"
 
-      # 1. LINUX: Install Nim inside the Docker container using yum/curl
-      # We install xz (for extracting) and gcc (for linking)
-      CIBW_BEFORE_ALL_LINUX: >
-        yum install -y xz curl gcc &&
-        curl -L https://nim-lang.org/download/nim-2.0.0-linux_x64.tar.xz -o nim.tar.xz &&
-        tar -xf nim.tar.xz &&
-        mv nim-2.0.0 /opt/nim &&
-        ln -s /opt/nim/bin/nim /usr/bin/nim
-
-      # 2. WINDOWS/MAC: Nim is installed on the host runner (outside Docker)
-      # We add it to PATH so the build script can find it
+      # LINUX: Install Nim inside the Docker container
+      # Uses the choosenim installer which is more reliable than manual tar extraction
+      CIBW_BEFORE_ALL_LINUX: |
+        yum install -y curl git &&
+        curl -L https://nim-lang.org/choosenim/init.sh -o choosenim.sh &&
+        sh choosenim.sh -y &&
+        export PATH=/root/.nimble/bin:$PATH &&
+        choosenim update -y &&
+        choosenim install 2.0.0 -y
 
     steps:
       - uses: actions/checkout@v4
