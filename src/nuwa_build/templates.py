@@ -343,7 +343,6 @@ jobs:
     name: Wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
@@ -352,34 +351,13 @@ jobs:
       CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-* cp313-*"
       CIBW_SKIP: "pp* *-musllinux_* *i686 *-win32"
 
-      CIBW_BEFORE_ALL_LINUX: >
-        yum install -y xz curl gcc &&
-        curl -L https://nim-lang.org/download/nim-2.0.0-linux_x64.tar.xz -o nim.tar.xz &&
-        tar -xf nim.tar.xz &&
-        mv nim-2.0.0 /opt/nim &&
-        ln -s /opt/nim/bin/nim /usr/bin/nim &&
-        ln -s /opt/nim/bin/nimble /usr/bin/nimble &&
-        rm nim.tar.xz
-
-      CIBW_BEFORE_ALL_WINDOWS: "choco install nim --version 2.0.0 -y"
-
-      CIBW_ENVIRONMENT_WINDOWS: 'PATH="$PATH;C:\\\\tools\\\\Nim\\\\nim-2.0.0\\\\bin"'
-
-      CIBW_BEFORE_ALL_MACOS: "brew install nim"
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Nim (Host)
-        if: runner.os != 'Linux'
-        uses: jiro4989/setup-nim-action@v2
+      - name: Build wheels
+        uses: martineastwood/nuwa-build-action@v1
         with:
           nim-version: "2.0.0"
-
-      - uses: actions/checkout@v4
-
-      - name: Build wheels
-        uses: pypa/cibuildwheel@v2.22.0
 
       - uses: actions/upload-artifact@v4
         with:
@@ -392,10 +370,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: jiro4989/setup-nim-action@v2
-        with:
-          nim-version: "2.0.0"
-
       - name: Build sdist
         run: |
           pip install build
@@ -405,21 +379,4 @@ jobs:
         with:
           name: cibw-sdist
           path: dist/*.tar.gz
-
-  # publish:
-  #   needs: [build_wheels, build_sdist]
-  #   runs-on: ubuntu-latest
-  #   environment:
-  #     name: pypi
-  #     url: https://pypi.org/p/${{ github.event.repository.name }}
-  #   permissions:
-  #     id-token: write
-  #   steps:
-  #     - uses: actions/download-artifact@v4
-  #       with:
-  #         pattern: cibw-*
-  #         merge-multiple: true
-  #         path: dist
-
-  #     - uses: pypa/gh-action-pypi-publish@release/v1
 """
