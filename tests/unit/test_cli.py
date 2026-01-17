@@ -82,14 +82,8 @@ class TestValidateProjectName:
 
     def test_python_builtin_conflict(self):
         """Test that Python builtin conflicts are detected."""
-        # Create a mock builtin module
-        mock_builtins = MagicMock()
-        mock_builtins.print = MagicMock()
-
-        with (
-            patch("nuwa_build.cli.__builtins__", mock_builtins),
-            pytest.raises(ValueError, match="conflicts"),
-        ):
+        # 'print' is already a real builtin, so no mocking needed
+        with pytest.raises(ValueError, match="conflicts"):
             validate_project_name("print")  # becomes "print" module
 
 

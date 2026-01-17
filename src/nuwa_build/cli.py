@@ -1,8 +1,7 @@
 """Command-line interface for Nuwa Build."""
 
-__version__ = "0.2.5"
-
 import argparse
+import builtins
 import contextlib
 import logging
 import re
@@ -12,6 +11,7 @@ import time
 from pathlib import Path
 from typing import Optional
 
+from . import __version__
 from .backend import _compile_nim
 from .constants import DEFAULT_DEBOUNCE_DELAY
 from .templates import (
@@ -127,7 +127,7 @@ def validate_project_name(name: str) -> None:
 
     # Check for Python keywords (after normalization)
     module_name = name.replace("-", "_")
-    if module_name in sys.modules or hasattr(__builtins__, module_name):
+    if module_name in sys.modules or hasattr(builtins, module_name):
         raise ValueError(
             f"Project name '{name}' conflicts with Python keyword/builtin '{module_name}'"
         )
