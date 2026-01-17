@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from .config import load_pyproject_toml, merge_cli_args, parse_nuwa_config
+from .constants import NIM_APP_LIB_FLAG, SHARED_LIBRARY_PERMISSIONS
 from .discovery import discover_nim_sources, validate_nim_project
 from .errors import format_compilation_error, format_compilation_success
 from .stubs import StubGenerator
@@ -104,7 +105,7 @@ def _build_nim_command(
     cmd = [
         "nim",
         "c",
-        "--app:lib",
+        NIM_APP_LIB_FLAG,
         f"--out:{output_path}",
     ]
 
@@ -135,6 +136,115 @@ def _build_nim_command(
     return cmd
 
 
+def _install_dependencies(config: dict, project_root: Path) -> Path:
+    """Install nimble dependencies to local directory if configured.
+
+    Args:
+        config: Configuration dictionary
+        project_root: Project root directory
+
+    Returns:
+        Path to local nimble directory
+    """
+    local_nimble_path = project_root / ".nimble"
+
+    nimble_deps = config.get("nimble_deps", [])
+    if nimble_deps:
+        install_nimble_dependencies(nimble_deps, local_dir=local_nimble_path)
+
+    return local_nimble_path
+
+
+def _determine_output_path(config: dict, inplace: bool) -> Path:
+    """Determine output path for compilation.
+
+    Args:
+        config: Configuration dictionary
+        inplace: If True, compile next to source; if False, compile to build dir
+
+    Returns:
+        Path where compiled extension should be placed
+    """
+    lib_name = config["lib_name"]
+    ext = get_platform_extension()
+
+    if inplace:
+        # For develop/editable: place in Python package directory
+        module_name = config["module_name"]
+        return _determine_inplace_output(module_name, config)
+    else:
+        # For wheels: place in current working directory
+        return Path.cwd() / f"{lib_name}{ext}"
+
+
+def _run_compilation(
+    cmd: List[str], entry_point: Path, out_path: Path
+) -> subprocess.CompletedProcess:
+    """Execute the Nim compiler command.
+
+    Args:
+        cmd: Compiler command list
+        entry_point: Path to entry point .nim file
+        out_path: Output path for compiled extension
+
+    Returns:
+        Completed process result
+
+    Raises:
+        RuntimeError: If Nim compiler is not found
+        subprocess.CalledProcessError: If compilation fails
+    """
+    logger.info(f"Compiling {entry_point} -> {out_path}")
+    print(f"🐍 Nuwa: Compiling {entry_point} -> {out_path}...")
+
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+
+        if result.returncode != 0:
+            # Format and display error with context
+            formatted_error = format_compilation_error(result.stderr, working_dir=Path.cwd())
+            print(formatted_error)
+            raise subprocess.CalledProcessError(result.returncode, cmd)
+
+        # Log warnings and hints
+        if result.stderr:
+            warnings_hints = []
+            for line in result.stderr.splitlines():
+                if "Hint:" in line or "Warning:" in line:
+                    warnings_hints.append(line)
+
+            if warnings_hints:
+                logger.debug("Compiler warnings/hints:")
+                for warning in warnings_hints:
+                    logger.debug(f"  {warning}")
+
+        return result
+
+    except FileNotFoundError:
+        raise RuntimeError(
+            f"Nim compiler not found at '{shutil.which('nim')}'.\n"
+            "Install Nim from https://nim-lang.org/install.html"
+        ) from None
+
+
+def _generate_type_stubs(lib_name: str, compiler_output: str, output_dir: Path) -> None:
+    """Generate Python type stubs from compiler output.
+
+    Args:
+        lib_name: Name of the compiled library
+        compiler_output: Standard output from the compiler
+        output_dir: Directory to write .pyi files to
+    """
+    generator = StubGenerator(lib_name)
+    stub_count = generator.parse_compiler_output(compiler_output)
+
+    if stub_count > 0:
+        generator.generate_pyi(output_dir)
+        logger.info(f"Generated {stub_count} type stubs for {lib_name}")
+    else:
+        logger.debug("No stub metadata found in compiler output (nuwa_sdk not used?)")
+
+
 def _compile_nim(
     build_type: str = "release",
     inplace: bool = False,
@@ -163,33 +273,16 @@ def _compile_nim(
     if config_overrides:
         config = merge_cli_args(config, config_overrides)
 
-    # Define local nimble path for project-level isolation
+    # Install dependencies
     project_root = Path.cwd()
-    local_nimble_path = project_root / ".nimble"
-
-    # Install nimble dependencies to local directory if configured
-    nimble_deps = config.get("nimble_deps", [])
-    if nimble_deps:
-        install_nimble_dependencies(nimble_deps, local_dir=local_nimble_path)
+    local_nimble_path = _install_dependencies(config, project_root)
 
     # Discover sources
     nim_dir, entry_point = discover_nim_sources(config)
     validate_nim_project(nim_dir, entry_point)
 
     # Determine output path
-    module_name = config["module_name"]
-    lib_name = config["lib_name"]
-    ext = get_platform_extension()
-
-    if inplace:
-        # For develop/editable: place in Python package directory
-        out_path = _determine_inplace_output(module_name, config)
-    else:
-        # For wheels: place in current working directory
-        out_path = Path.cwd() / f"{lib_name}{ext}"
-
-    logger.info(f"Compiling {entry_point} -> {out_path}")
-    print(f"🐍 Nuwa: Compiling {entry_point} -> {out_path}...")
+    out_path = _determine_output_path(config, inplace)
 
     # Build compiler command
     cmd = _build_nim_command(
@@ -202,51 +295,171 @@ def _compile_nim(
     )
 
     # Run compilation
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
-
-        if result.returncode != 0:
-            # Format and display error with context
-            formatted_error = format_compilation_error(result.stderr, working_dir=Path.cwd())
-            print(formatted_error)
-            raise subprocess.CalledProcessError(result.returncode, cmd)
-
-        # Log warnings and hints
-        if result.stderr:
-            warnings_hints = []
-            for line in result.stderr.splitlines():
-                if "Hint:" in line or "Warning:" in line:
-                    warnings_hints.append(line)
-
-            if warnings_hints:
-                logger.debug("Compiler warnings/hints:")
-                for warning in warnings_hints:
-                    logger.debug(f"  {warning}")
-
-    except FileNotFoundError:
-        raise RuntimeError(
-            f"Nim compiler not found at '{shutil.which('nim')}'.\n"
-            "Install Nim from https://nim-lang.org/install.html"
-        ) from None
+    result = _run_compilation(cmd, entry_point, out_path)
 
     # Success
     logger.debug(f"Successfully compiled {out_path}")
     print(format_compilation_success(out_path))
 
-    # Generate type stubs from compiler output
-    generator = StubGenerator(lib_name)
-    stub_count = generator.parse_compiler_output(result.stdout)
-
-    if stub_count > 0:
-        generator.generate_pyi(out_path.parent)
-        logger.info(f"Generated {stub_count} type stubs for {lib_name}")
-    else:
-        logger.debug("No stub metadata found in compiler output (nuwa_sdk not used?)")
+    # Generate type stubs
+    lib_name = config["lib_name"]
+    _generate_type_stubs(lib_name, result.stdout, out_path.parent)
 
     return out_path
 
 
 # --- PEP 517 Hooks ---
+
+
+def _calculate_file_hash_and_size(data: bytes) -> Tuple[str, int]:
+    """Calculate SHA256 hash and size for file data.
+
+    Args:
+        data: File content as bytes
+
+    Returns:
+        Tuple of (hash string, size in bytes)
+    """
+    digest = hashlib.sha256(data).digest()
+    hash_str = "sha256=" + base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
+    return hash_str, len(data)
+
+
+def _write_wheel_file(
+    zf: zipfile.ZipFile,
+    arcname: str,
+    data: bytes,
+    record_lines: List[str],
+    permissions: Optional[int] = None,
+) -> None:
+    """Write a file to the wheel and record it for the RECORD.
+
+    Args:
+        zf: ZipFile object to write to
+        arcname: Archive name for the file
+        data: File content as bytes
+        record_lines: List to append RECORD entry to
+        permissions: Optional Unix permissions (external_attr)
+    """
+    if permissions:
+        info = zipfile.ZipInfo(filename=arcname)
+        info.external_attr = permissions
+        zf.writestr(info, data)
+    else:
+        zf.writestr(arcname, data)
+
+    h, size = _calculate_file_hash_and_size(data)
+    record_lines.append(f"{arcname},{h},{size}")
+
+
+def _add_python_package_files(
+    zf: zipfile.ZipFile,
+    name_normalized: str,
+    record_lines: List[str],
+) -> None:
+    """Add Python package files to the wheel.
+
+    Args:
+        zf: ZipFile object to write to
+        name_normalized: Normalized package name
+        record_lines: List to append RECORD entries to
+    """
+    package_dir = Path(name_normalized)
+    if package_dir.exists():
+        for py_file in package_dir.rglob("*.py"):
+            arcname = str(py_file)
+            data = py_file.read_bytes()
+            _write_wheel_file(zf, arcname, data, record_lines)
+
+
+def _add_compiled_extension(
+    zf: zipfile.ZipFile,
+    so_file: Path,
+    name_normalized: str,
+    lib_name: str,
+    ext: str,
+    record_lines: List[str],
+) -> None:
+    """Add compiled extension to the wheel.
+
+    Args:
+        zf: ZipFile object to write to
+        so_file: Path to compiled .so/.pyd file
+        name_normalized: Normalized package name
+        lib_name: Library name (without extension)
+        ext: Platform-specific extension (.so/.pyd)
+        record_lines: List to append RECORD entries to
+    """
+    arcname = f"{name_normalized}/{lib_name}{ext}"
+    with open(so_file, "rb") as f:
+        so_content = f.read()
+    _write_wheel_file(zf, arcname, so_content, record_lines, permissions=SHARED_LIBRARY_PERMISSIONS)
+
+
+def _add_type_stubs(
+    zf: zipfile.ZipFile,
+    so_file: Path,
+    name_normalized: str,
+    lib_name: str,
+    record_lines: List[str],
+) -> None:
+    """Add type stub files to the wheel if they exist.
+
+    Args:
+        zf: ZipFile object to write to
+        so_file: Path to compiled .so/.pyd file
+        name_normalized: Normalized package name
+        lib_name: Library name
+        record_lines: List to append RECORD entries to
+    """
+    pyi_file = so_file.with_suffix(".pyi")
+    if pyi_file.exists():
+        arcname = f"{name_normalized}/{lib_name}.pyi"
+        data = pyi_file.read_bytes()
+        _write_wheel_file(zf, arcname, data, record_lines)
+        logger.info(f"Including type stubs: {lib_name}.pyi")
+
+
+def _add_wheel_metadata(
+    zf: zipfile.ZipFile,
+    name: str,
+    version: str,
+    wheel_tag: str,
+    name_normalized: str,
+    record_lines: List[str],
+) -> None:
+    """Add WHEEL and METADATA files to the wheel.
+
+    Args:
+        zf: ZipFile object to write to
+        name: Package name
+        version: Package version
+        wheel_tag: Wheel tag (e.g., "cp313-cp313-linux_x86_64")
+        name_normalized: Normalized package name
+        record_lines: List to append RECORD entries to
+    """
+    dist_info = f"{name_normalized}-{version}.dist-info"
+
+    wheel_content = (
+        f"Wheel-Version: 1.0\nGenerator: nuwa\nRoot-Is-Purelib: false\nTag: {wheel_tag}\n".encode()
+    )
+    _write_wheel_file(zf, f"{dist_info}/WHEEL", wheel_content, record_lines)
+
+    metadata_content = f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n".encode()
+    _write_wheel_file(zf, f"{dist_info}/METADATA", metadata_content, record_lines)
+
+
+def _cleanup_build_artifacts(so_file: Path) -> None:
+    """Clean up temporary build artifacts.
+
+    Args:
+        so_file: Path to compiled extension
+    """
+    if so_file.exists():
+        so_file.unlink()
+    pyi_file = so_file.with_suffix(".pyi")
+    if pyi_file.exists():
+        pyi_file.unlink()
 
 
 def build_wheel(
@@ -285,70 +498,28 @@ def build_wheel(
     wheel_tag = wheel_name[:-4].split("-", 2)[2]
     wheel_path = Path(wheel_directory) / wheel_name
 
-    # Helper to calculate hash and size for RECORD
-    def get_file_info(data: bytes) -> Tuple[str, int]:
-        digest = hashlib.sha256(data).digest()
-        hash_str = "sha256=" + base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
-        return hash_str, len(data)
-
-    record_lines = []
+    record_lines: List[str] = []
 
     with zipfile.ZipFile(wheel_path, "w") as zf:
-        # Helper to write file and store RECORD entry
-        def write_and_record(arcname: str, data: bytes, permissions: Optional[int] = None):
-            if permissions:
-                info = zipfile.ZipInfo(filename=arcname)
-                info.external_attr = permissions
-                zf.writestr(info, data)
-            else:
-                zf.writestr(arcname, data)
-
-            h, size = get_file_info(data)
-            record_lines.append(f"{arcname},{h},{size}")
-
         # 1. Add Python package files
-        package_dir = Path(name_normalized)
-        if package_dir.exists():
-            for py_file in package_dir.rglob("*.py"):
-                arcname = str(py_file)
-                data = py_file.read_bytes()
-                write_and_record(arcname, data)
+        _add_python_package_files(zf, name_normalized, record_lines)
 
-        # 2. Add compiled .so file (with executable permissions)
-        arcname = f"{name_normalized}/{lib_name}{ext}"
-        with open(so_file, "rb") as f:
-            so_content = f.read()
-        # 0o100755 = Regular file + rwxr-xr-x
-        write_and_record(arcname, so_content, permissions=0o100755 << 16)
+        # 2. Add compiled extension
+        _add_compiled_extension(zf, so_file, name_normalized, lib_name, ext, record_lines)
 
-        # 3. Add Type Stubs
-        pyi_file = so_file.with_suffix(".pyi")
-        if pyi_file.exists():
-            arcname = f"{name_normalized}/{lib_name}.pyi"
-            data = pyi_file.read_bytes()
-            write_and_record(arcname, data)
-            logger.info(f"Including type stubs: {lib_name}.pyi")
+        # 3. Add type stubs
+        _add_type_stubs(zf, so_file, name_normalized, lib_name, record_lines)
 
-        # 4. Add Metadata (WHEEL and METADATA)
-        dist_info = f"{name_normalized}-{version}.dist-info"
-
-        wheel_content = f"Wheel-Version: 1.0\nGenerator: nuwa\nRoot-Is-Purelib: false\nTag: {wheel_tag}\n".encode()
-        write_and_record(f"{dist_info}/WHEEL", wheel_content)
-
-        metadata_content = f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n".encode()
-        write_and_record(f"{dist_info}/METADATA", metadata_content)
+        # 4. Add metadata
+        _add_wheel_metadata(zf, name, version, wheel_tag, name_normalized, record_lines)
 
         # 5. Write RECORD file (must be last)
-        # The RECORD file lists itself with no hash or size
+        dist_info = f"{name_normalized}-{version}.dist-info"
         record_lines.append(f"{dist_info}/RECORD,,")
         zf.writestr(f"{dist_info}/RECORD", "\n".join(record_lines))
 
     # Cleanup
-    if so_file.exists():
-        so_file.unlink()
-    pyi_file = so_file.with_suffix(".pyi")
-    if pyi_file.exists():
-        pyi_file.unlink()
+    _cleanup_build_artifacts(so_file)
 
     return wheel_path.name
 
