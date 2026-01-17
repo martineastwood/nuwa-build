@@ -57,6 +57,7 @@ nuwa new <project_name>
 
 - **Debug Build:** Run `nuwa develop`. This compiles the Nim code into the Python package folder.
 - **Release Build:** Run `nuwa develop --release`. Use this for production-ready artifacts.
+- **Build Wheel:** Run `nuwa build` to create a distributable wheel in `dist/`. This is the recommended way to build wheels for distribution.
 - **Watch Mode:** Run `nuwa watch` to auto-recompile on file changes.
 - **Watch + Test:** Run `nuwa watch --run-tests` to run pytest after every compile.
 
@@ -247,14 +248,15 @@ When helping users with nuwa-build:
 
 1. **Always check prerequisites first** - Run `nim --version` and `nuwa --help` before attempting builds
 2. **Use `nuwa develop` for development** - Not `pip install` or `setup.py build`
-3. **Prefer watch mode for iterative development** - `nuwa watch --run-tests` provides fast feedback
-4. **Check for existing config** - Read `[tool.nuwa]` in `pyproject.toml` before suggesting changes
-5. **Validate module names** - Python identifiers only (letters, numbers, underscores; cannot start with number)
-6. **Auto-install dependencies** - Add to `nimble-deps` rather than manual `nimble install` commands
-7. **Understand the flat layout** - No `pip install -e .` needed; compiled extension goes directly into package
-8. **Use `include` for multi-file projects** - Not `import`, when building shared libraries
-9. **Name entry points consistently** - Use `{module_name}_lib.nim` for auto-discovery
-10. **Test after building** - Run `pytest` directly after `nuwa develop` completes
+3. **Use `nuwa build` for distribution** - Creates wheels in `dist/` directory, recommended over `pip wheel` or `python -m build`
+4. **Prefer watch mode for iterative development** - `nuwa watch --run-tests` provides fast feedback
+5. **Check for existing config** - Read `[tool.nuwa]` in `pyproject.toml` before suggesting changes
+6. **Validate module names** - Python identifiers only (letters, numbers, underscores; cannot start with number)
+7. **Auto-install dependencies** - Add to `nimble-deps` rather than manual `nimble install` commands
+8. **Understand the flat layout** - No `pip install -e .` needed; compiled extension goes directly into package
+9. **Use `include` for multi-file projects** - Not `import`, when building shared libraries
+10. **Name entry points consistently** - Use `{module_name}_lib.nim` for auto-discovery
+11. **Test after building** - Run `pytest` directly after `nuwa develop` completes
 
 ## Advanced Usage
 
@@ -316,14 +318,18 @@ nuwa watch --run-tests
 ### Building for Distribution
 
 ```bash
-# Build release version
-nuwa develop --release
+# Build a wheel for distribution
+nuwa build
 
-# Create wheel
-pip install build
-python -m build
+# Build with custom flags
+nuwa build --nim-flag="-d:release" --nim-flag="--opt:speed"
+
+# Install and test locally
+pip install dist/*.whl
 
 # Upload to PyPI
 pip install twine
-twine upload dist/*
+twine upload dist/*.whl
 ```
+
+**Note**: The `nuwa build` command is the recommended way to build wheels. It creates wheels in the `dist/` directory following standard Python packaging conventions. For source distributions or advanced use cases, you can still use `python -m build`.

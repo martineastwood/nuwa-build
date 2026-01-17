@@ -125,6 +125,61 @@ def run_develop(args: argparse.Namespace) -> None:
         sys.exit(f"❌ Error: {e}")
 
 
+def run_build(args: argparse.Namespace) -> None:
+    """Build a wheel package.
+
+    Args:
+        args: Parsed command-line arguments
+    """
+    from .backend import build_wheel
+
+    # Build config overrides from CLI args (same pattern as run_develop)
+    config_overrides: dict = {}
+    if args.module_name:
+        config_overrides["module_name"] = args.module_name
+    if args.nim_source:
+        config_overrides["nim_source"] = args.nim_source
+    if args.entry_point:
+        config_overrides["entry_point"] = args.entry_point
+    if args.output_dir:
+        config_overrides["output_location"] = args.output_dir
+    if args.nim_flags:
+        config_overrides["nim_flags"] = args.nim_flags
+
+    # Setup output directory
+    dist_dir = Path.cwd() / "dist"
+
+    try:
+        # Create dist directory if it doesn't exist
+        dist_dir.mkdir(parents=True, exist_ok=True)
+
+        # Build the wheel with config overrides
+        config_settings = {"config_overrides": config_overrides} if config_overrides else None
+        print("🔨 Building wheel...")
+        wheel_filename = build_wheel(str(dist_dir), config_settings=config_settings)
+
+        # Construct full path for user feedback
+        wheel_path = dist_dir / wheel_filename
+
+        # Calculate file size for nicer output
+        size_kb = wheel_path.stat().st_size / 1024
+
+        print(f"✅ Successfully built: {wheel_filename}")
+        print(f"   Location: {wheel_path}")
+        print(f"   Size: {size_kb:.1f} KB")
+        print(f"💡 Install with: pip install {wheel_path}")
+
+    except FileNotFoundError as e:
+        sys.exit(f"❌ Error: {e}")
+    except ValueError as e:
+        sys.exit(f"❌ Configuration Error: {e}")
+    except subprocess.CalledProcessError:
+        # Error already formatted and printed by backend.py
+        sys.exit(1)
+    except Exception as e:
+        sys.exit(f"❌ Error: {e}")
+
+
 def run_clean(args: argparse.Namespace) -> None:
     """Clean build artifacts and dependencies.
 
@@ -404,6 +459,20 @@ def main() -> None:
         help="Run pytest after each successful compilation",
     )
 
+    # build command
+    cmd_build = subparsers.add_parser("build", help="Build a wheel package")
+    cmd_build.add_argument("-r", "--release", action="store_true", help="Build in release mode")
+    cmd_build.add_argument("--module-name", help="Override Python module name")
+    cmd_build.add_argument("--nim-source", help="Override Nim source directory")
+    cmd_build.add_argument("--entry-point", help="Override entry point file name")
+    cmd_build.add_argument("--output-dir", help="Override output directory")
+    cmd_build.add_argument(
+        "--nim-flag",
+        action="append",
+        dest="nim_flags",
+        help="Additional Nim compiler flags (can be used multiple times)",
+    )
+
     args = parser.parse_args()
 
     # If no command is provided, show help
@@ -415,6 +484,8 @@ def main() -> None:
         run_new(args)
     elif args.command == "develop":
         run_develop(args)
+    elif args.command == "build":
+        run_build(args)
     elif args.command == "clean":
         run_clean(args)
     elif args.command == "watch":

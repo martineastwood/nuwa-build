@@ -12,6 +12,7 @@ Build Python extensions with Nim using zero-configuration tooling.
 - **Multi-file Projects**: Compile multiple Nim files into a single Python extension
 - **Flexible Configuration**: Configure via `pyproject.toml` or CLI arguments
 - **PEP 517/660 Compatible**: Build wheels and source distributions
+- **Build Command**: `nuwa build` for easy local wheel creation
 - **Editable Installs**: `pip install -e .` support for development
 - **Watch Mode**: Auto-recompile on file changes with `nuwa watch`
 - **Auto Dependencies**: Automatically install Nimble packages before build
@@ -117,7 +118,13 @@ nuwa watch --release
 ### Install and Distribute
 
 ```bash
-# Build a wheel
+# Build a wheel for distribution
+nuwa build
+
+# Build and install locally
+pip install dist/*.whl
+
+# Build using standard Python tools (alternative)
 pip install . --no-build-isolation
 
 # Build source distribution
@@ -245,6 +252,26 @@ nuwa watch --release
 nuwa watch --module-name my_module
 nuwa watch --nim-source my_nim_dir
 ```
+
+### `nuwa build`
+
+Build a wheel package for distribution:
+
+```bash
+# Build a wheel (output: dist/)
+nuwa build
+
+# Build with custom Nim flags
+nuwa build --nim-flag="-d:release" --nim-flag="--opt:speed"
+
+# Override configuration
+nuwa build --module-name my_module
+nuwa build --nim-source my_nim_dir
+nuwa build --entry-point main.nim
+nuwa build --output-dir build/
+```
+
+**Note**: The `nuwa build` command creates wheels in the `dist/` directory, following standard Python packaging conventions. This is the recommended way to build wheels for distribution instead of using `pip wheel` or `python -m build`.
 
 ### `nuwa clean`
 

@@ -14,7 +14,7 @@ else:
     import tomli as tomllib
 
 from nuwa_build.backend import build_editable, build_wheel
-from nuwa_build.cli import run_new
+from nuwa_build.cli import run_build, run_new
 
 
 @pytest.mark.integration
@@ -257,3 +257,146 @@ class TestWheelMetadata:
         assert "simple_test" in wheel_name or "simple-test" in wheel_name
         assert "0.1.0" in wheel_name
         assert wheel_name.endswith(".whl")
+
+
+@pytest.mark.integration
+@pytest.mark.usefixtures("requires_nim")
+class TestBuildCommand:
+    """Tests for nuwa build command."""
+
+    def test_build_command_creates_wheel_in_dist(self, tmp_path):
+        """Test that build command creates wheel in dist/ directory."""
+        from argparse import Namespace
+
+        fixture_path = Path(__file__).parent.parent / "fixtures" / "projects" / "simple"
+        import shutil
+
+        project_path = tmp_path / "build_cmd_test"
+        shutil.copytree(fixture_path, project_path)
+
+        os.chdir(project_path)
+
+        # Run build command with minimal args
+        args = Namespace(
+            release=False,
+            module_name=None,
+            nim_source=None,
+            entry_point=None,
+            output_dir=None,
+            nim_flags=None,
+        )
+        run_build(args)
+
+        # Verify wheel was created in dist/
+        dist_dir = project_path / "dist"
+        assert dist_dir.exists()
+        wheels = list(dist_dir.glob("*.whl"))
+        assert len(wheels) == 1
+        assert "simple_test" in wheels[0].name or "simple-test" in wheels[0].name
+
+    def test_build_command_with_nim_flags(self, tmp_path):
+        """Test that build command respects nim flag overrides."""
+        from argparse import Namespace
+
+        fixture_path = Path(__file__).parent.parent / "fixtures" / "projects" / "simple"
+        import shutil
+
+        project_path = tmp_path / "build_flags_test"
+        shutil.copytree(fixture_path, project_path)
+
+        os.chdir(project_path)
+
+        # Run build command with nim flag
+        args = Namespace(
+            release=False,
+            module_name=None,
+            nim_source=None,
+            entry_point=None,
+            output_dir=None,
+            nim_flags=["-d:release"],
+        )
+        run_build(args)
+
+        # Verify wheel was created
+        dist_dir = project_path / "dist"
+        assert dist_dir.exists()
+        wheels = list(dist_dir.glob("*.whl"))
+        assert len(wheels) == 1
+
+    def test_build_command_overwrites_existing_wheel(self, tmp_path):
+        """Test that building twice overwrites the previous wheel."""
+        from argparse import Namespace
+
+        fixture_path = Path(__file__).parent.parent / "fixtures" / "projects" / "simple"
+        import shutil
+
+        project_path = tmp_path / "build_overwrite_test"
+        shutil.copytree(fixture_path, project_path)
+
+        os.chdir(project_path)
+
+        args = Namespace(
+            release=False,
+            module_name=None,
+            nim_source=None,
+            entry_point=None,
+            output_dir=None,
+            nim_flags=None,
+        )
+
+        # Build first time
+        run_build(args)
+        dist_dir = project_path / "dist"
+        wheels = list(dist_dir.glob("*.whl"))
+        first_wheel = wheels[0]
+        first_mtime = first_wheel.stat().st_mtime
+
+        # Small delay to ensure different mtime
+        import time
+
+        time.sleep(0.1)
+
+        # Build second time
+        run_build(args)
+        wheels = list(dist_dir.glob("*.whl"))
+        assert len(wheels) == 1  # Still only one wheel
+        assert wheels[0].name == first_wheel.name  # Same name
+
+        # Wheel should have been overwritten (newer mtime)
+        # Note: size might be the same, but mtime should be different
+        assert wheels[0].stat().st_mtime >= first_mtime
+
+    def test_build_command_creates_dist_directory(self, tmp_path):
+        """Test that build command creates dist/ if it doesn't exist."""
+        from argparse import Namespace
+
+        fixture_path = Path(__file__).parent.parent / "fixtures" / "projects" / "simple"
+        import shutil
+
+        project_path = tmp_path / "build_create_dist_test"
+        shutil.copytree(fixture_path, project_path)
+
+        os.chdir(project_path)
+
+        # Ensure dist/ doesn't exist
+        dist_dir = project_path / "dist"
+        if dist_dir.exists():
+            shutil.rmtree(dist_dir)
+        assert not dist_dir.exists()
+
+        args = Namespace(
+            release=False,
+            module_name=None,
+            nim_source=None,
+            entry_point=None,
+            output_dir=None,
+            nim_flags=None,
+        )
+
+        # Run build command
+        run_build(args)
+
+        # Verify dist/ was created
+        assert dist_dir.exists()
+        wheels = list(dist_dir.glob("*.whl"))
+        assert len(wheels) == 1

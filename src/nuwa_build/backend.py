@@ -251,20 +251,25 @@ def _compile_nim(
 
 def build_wheel(
     wheel_directory: str,
-    config_settings: Optional[dict] = None,  # noqa: ARG001
+    config_settings: Optional[dict] = None,
     metadata_directory: Optional[str] = None,  # noqa: ARG001
 ) -> str:
     """Build a standard wheel with valid RECORD and permissions.
 
     Args:
         wheel_directory: Directory to write the wheel
-        config_settings: Optional build settings
+        config_settings: Optional build settings (supports config_overrides)
         metadata_directory: Optional metadata directory
 
     Returns:
         The wheel filename
     """
-    so_file = _compile_nim(build_type="release", inplace=False)
+    # Convert config_settings to config_overrides format if provided
+    config_overrides = None
+    if config_settings and "config_overrides" in config_settings:
+        config_overrides = config_settings["config_overrides"]
+
+    so_file = _compile_nim(build_type="release", inplace=False, config_overrides=config_overrides)
 
     # Extract metadata
     name, version = _extract_metadata()
