@@ -270,28 +270,34 @@ def build_wheel(
     lib_name = config["lib_name"]
     ext = get_platform_extension()
 
+    # Normalize package name for directory structure
+    # Per PEP 427, wheel internal paths must use underscores even if package name uses hyphens
+    name_normalized = name.replace("-", "_")
+
     # Build wheel with proper tags
     wheel_name = get_wheel_tags(name, version)
     wheel_path = Path(wheel_directory) / wheel_name
 
     with zipfile.ZipFile(wheel_path, "w") as zf:
         # Include Python package files
-        package_dir = Path(name)
+        # Use name_normalized to find the actual directory on disk
+        package_dir = Path(name_normalized)
         if package_dir.exists():
             for py_file in package_dir.rglob("*.py"):
                 arcname = str(py_file)
                 zf.write(py_file, arcname=arcname)
 
         # Place .so file inside the package directory
-        zf.write(so_file, arcname=f"{name}/{lib_name}{ext}")
+        # Use name_normalized for the internal archive path
+        zf.write(so_file, arcname=f"{name_normalized}/{lib_name}{ext}")
 
         # Include type stubs (.pyi files) if they exist
         pyi_file = so_file.with_suffix(".pyi")
         if pyi_file.exists():
-            zf.write(pyi_file, arcname=f"{name}/{lib_name}.pyi")
+            zf.write(pyi_file, arcname=f"{name_normalized}/{lib_name}.pyi")
             logger.info(f"Including type stubs: {lib_name}.pyi")
 
-        # Write metadata
+        # Write metadata (metadata Name field keeps original hyphenated name)
         write_wheel_metadata(zf, name, version)
 
     # Cleanup compiled artifacts after packing
