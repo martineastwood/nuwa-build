@@ -287,9 +287,18 @@ def build_wheel(
                 arcname = str(py_file)
                 zf.write(py_file, arcname=arcname)
 
-        # Place .so file inside the package directory
+        # Place .so file inside the package directory with executable permissions
         # Use name_normalized for the internal archive path
-        zf.write(so_file, arcname=f"{name_normalized}/{lib_name}{ext}")
+        # CRITICAL: Set executable permissions (0o755) so auditwheel recognizes this as a binary
+        arcname = f"{name_normalized}/{lib_name}{ext}"
+        info = zipfile.ZipInfo.from_file(so_file, arcname=arcname)
+
+        # Set the external attributes (High 16 bits = Unix permissions)
+        # 0o100755 = Regular File (0o100000) + rwxr-xr-x (0o755)
+        info.external_attr = 0o100755 << 16
+
+        with open(so_file, "rb") as f:
+            zf.writestr(info, f.read())
 
         # Include type stubs (.pyi files) if they exist
         pyi_file = so_file.with_suffix(".pyi")
