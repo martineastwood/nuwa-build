@@ -113,7 +113,7 @@ def run_develop(args: argparse.Namespace) -> None:
             config_overrides=config_overrides if config_overrides else None,
         )
         # Note: Success message is printed by backend.py
-        print("💡 Run 'python example.py' or 'pytest' to test your module")
+        print("💡 Module updated. Run your tests or scripts to verify.")
     except FileNotFoundError as e:
         sys.exit(f"❌ Error: {e}")
     except ValueError as e:
