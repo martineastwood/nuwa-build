@@ -1,5 +1,7 @@
 """Command-line interface for Nuwa Build."""
 
+__version__ = "0.2.5"
+
 import argparse
 import subprocess
 import sys
@@ -346,7 +348,15 @@ def run_watch(args: argparse.Namespace) -> None:
 def main() -> None:
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(prog="nuwa", description="Build Python extensions with Nim.")
-    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # Add --version flag
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
+    )
+
+    subparsers = parser.add_subparsers(dest="command", required=False)
 
     # new command
     cmd_new = subparsers.add_parser("new", help="Create a new project")
@@ -395,6 +405,11 @@ def main() -> None:
     )
 
     args = parser.parse_args()
+
+    # If no command is provided, show help
+    if not args.command:
+        parser.print_help()
+        sys.exit(0)
 
     if args.command == "new":
         run_new(args)

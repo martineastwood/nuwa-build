@@ -1,5 +1,7 @@
 """Core compilation functionality for Nuwa Build."""
 
+import base64
+import hashlib
 import logging
 import shutil
 import subprocess
@@ -252,7 +254,7 @@ def build_wheel(
     config_settings: Optional[dict] = None,  # noqa: ARG001
     metadata_directory: Optional[str] = None,  # noqa: ARG001
 ) -> str:
-    """Build a standard wheel.
+    """Build a standard wheel with valid RECORD and permissions.
 
     Args:
         wheel_directory: Directory to write the wheel
@@ -270,46 +272,73 @@ def build_wheel(
     lib_name = config["lib_name"]
     ext = get_platform_extension()
 
-    # Normalize package name for directory structure
-    # Per PEP 427, wheel internal paths must use underscores even if package name uses hyphens
+    # Normalize package name
     name_normalized = name.replace("-", "_")
 
-    # Build wheel with proper tags
+    # Get wheel name and extracted tag
     wheel_name = get_wheel_tags(name, version)
+    wheel_tag = wheel_name[:-4].split("-", 2)[2]
     wheel_path = Path(wheel_directory) / wheel_name
 
+    # Helper to calculate hash and size for RECORD
+    def get_file_info(data: bytes) -> Tuple[str, int]:
+        digest = hashlib.sha256(data).digest()
+        hash_str = "sha256=" + base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
+        return hash_str, len(data)
+
+    record_lines = []
+
     with zipfile.ZipFile(wheel_path, "w") as zf:
-        # Include Python package files
-        # Use name_normalized to find the actual directory on disk
+        # Helper to write file and store RECORD entry
+        def write_and_record(arcname: str, data: bytes, permissions: Optional[int] = None):
+            if permissions:
+                info = zipfile.ZipInfo(filename=arcname)
+                info.external_attr = permissions
+                zf.writestr(info, data)
+            else:
+                zf.writestr(arcname, data)
+
+            h, size = get_file_info(data)
+            record_lines.append(f"{arcname},{h},{size}")
+
+        # 1. Add Python package files
         package_dir = Path(name_normalized)
         if package_dir.exists():
             for py_file in package_dir.rglob("*.py"):
                 arcname = str(py_file)
-                zf.write(py_file, arcname=arcname)
+                data = py_file.read_bytes()
+                write_and_record(arcname, data)
 
-        # Place .so file inside the package directory with executable permissions
-        # Use name_normalized for the internal archive path
-        # CRITICAL: Set executable permissions (0o755) so auditwheel recognizes this as a binary
+        # 2. Add compiled .so file (with executable permissions)
         arcname = f"{name_normalized}/{lib_name}{ext}"
-        info = zipfile.ZipInfo.from_file(so_file, arcname=arcname)
-
-        # Set the external attributes (High 16 bits = Unix permissions)
-        # 0o100755 = Regular File (0o100000) + rwxr-xr-x (0o755)
-        info.external_attr = 0o100755 << 16
-
         with open(so_file, "rb") as f:
-            zf.writestr(info, f.read())
+            so_content = f.read()
+        # 0o100755 = Regular file + rwxr-xr-x
+        write_and_record(arcname, so_content, permissions=0o100755 << 16)
 
-        # Include type stubs (.pyi files) if they exist
+        # 3. Add Type Stubs
         pyi_file = so_file.with_suffix(".pyi")
         if pyi_file.exists():
-            zf.write(pyi_file, arcname=f"{name_normalized}/{lib_name}.pyi")
+            arcname = f"{name_normalized}/{lib_name}.pyi"
+            data = pyi_file.read_bytes()
+            write_and_record(arcname, data)
             logger.info(f"Including type stubs: {lib_name}.pyi")
 
-        # Write metadata (metadata Name field keeps original hyphenated name)
-        write_wheel_metadata(zf, name, version)
+        # 4. Add Metadata (WHEEL and METADATA)
+        dist_info = f"{name_normalized}-{version}.dist-info"
 
-    # Cleanup compiled artifacts after packing
+        wheel_content = f"Wheel-Version: 1.0\nGenerator: nuwa\nRoot-Is-Purelib: false\nTag: {wheel_tag}\n".encode()
+        write_and_record(f"{dist_info}/WHEEL", wheel_content)
+
+        metadata_content = f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n".encode()
+        write_and_record(f"{dist_info}/METADATA", metadata_content)
+
+        # 5. Write RECORD file (must be last)
+        # The RECORD file lists itself with no hash or size
+        record_lines.append(f"{dist_info}/RECORD,,")
+        zf.writestr(f"{dist_info}/RECORD", "\n".join(record_lines))
+
+    # Cleanup
     if so_file.exists():
         so_file.unlink()
     pyi_file = so_file.with_suffix(".pyi")

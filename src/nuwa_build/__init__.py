@@ -1,3 +1,7 @@
+"""Nuwa Build - The Maturin for Nim."""
+
+__version__ = "0.2.5"
+
 from .backend import (
     build_editable,
     build_sdist,
@@ -8,6 +12,7 @@ from .backend import (
 )
 
 __all__ = [
+    "__version__",
     "build_wheel",
     "build_sdist",
     "build_editable",
