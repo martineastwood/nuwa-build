@@ -335,12 +335,12 @@ GITHUB_ACTIONS_PUBLISH_YML = """name: Publish to PyPI
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
 
 jobs:
   build_wheels:
-    name: Wheel on ${{ matrix.os }}
+    name: Wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -348,34 +348,38 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     env:
-      # Configure cibuildwheel to build for recent Python versions
+      PYTHONUTF8: 1
       CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-* cp313-*"
-      # Skip 32-bit builds and PyPy to save time
-      CIBW_SKIP: "pp* *-musllinux_* *i686"
+      CIBW_SKIP: "pp* *-musllinux_* *i686 *-win32"
 
-      # LINUX: Install Nim inside the Docker container
-      # Uses the choosenim installer which is more reliable than manual tar extraction
-      CIBW_BEFORE_ALL_LINUX: |
-        yum install -y curl git &&
-        curl -L https://nim-lang.org/choosenim/init.sh -o choosenim.sh &&
-        sh choosenim.sh -y &&
-        export PATH=/root/.nimble/bin:$PATH &&
-        choosenim update -y &&
-        choosenim install 2.0.0 -y
+      CIBW_BEFORE_ALL_LINUX: >
+        yum install -y xz curl gcc &&
+        curl -L https://nim-lang.org/download/nim-2.0.0-linux_x64.tar.xz -o nim.tar.xz &&
+        tar -xf nim.tar.xz &&
+        mv nim-2.0.0 /opt/nim &&
+        ln -s /opt/nim/bin/nim /usr/bin/nim &&
+        ln -s /opt/nim/bin/nimble /usr/bin/nimble &&
+        rm nim.tar.xz
+
+      CIBW_BEFORE_ALL_WINDOWS: "choco install nim --version 2.0.0 -y"
+
+      CIBW_ENVIRONMENT_WINDOWS: 'PATH="$PATH;C:\\\\tools\\\\Nim\\\\nim-2.0.0\\\\bin"'
+
+      CIBW_BEFORE_ALL_MACOS: "brew install nim"
 
     steps:
       - uses: actions/checkout@v4
 
-      # Install Nim on Host (For Windows/Mac)
       - name: Setup Nim (Host)
         if: runner.os != 'Linux'
         uses: jiro4989/setup-nim-action@v2
         with:
-          nim-version: '2.0.0'
+          nim-version: "2.0.0"
+
+      - uses: actions/checkout@v4
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.16.2
-        # cibuildwheel automatically runs 'pip wheel .' which triggers your backend
+        uses: pypa/cibuildwheel@v2.22.0
 
       - uses: actions/upload-artifact@v4
         with:
@@ -388,10 +392,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Sdist needs Nim to run 'nimble install' if you have deps check enabled
       - uses: jiro4989/setup-nim-action@v2
         with:
-          nim-version: '2.0.0'
+          nim-version: "2.0.0"
 
       - name: Build sdist
         run: |
@@ -403,20 +406,20 @@ jobs:
           name: cibw-sdist
           path: dist/*.tar.gz
 
-  publish:
-    needs: [build_wheels, build_sdist]
-    runs-on: ubuntu-latest
-    environment:
-      name: pypi
-      url: https://pypi.org/p/${{ github.event.repository.name }}
-    permissions:
-      id-token: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: cibw-*
-          merge-multiple: true
-          path: dist
+  # publish:
+  #   needs: [build_wheels, build_sdist]
+  #   runs-on: ubuntu-latest
+  #   environment:
+  #     name: pypi
+  #     url: https://pypi.org/p/${{ github.event.repository.name }}
+  #   permissions:
+  #     id-token: write
+  #   steps:
+  #     - uses: actions/download-artifact@v4
+  #       with:
+  #         pattern: cibw-*
+  #         merge-multiple: true
+  #         path: dist
 
-      - uses: pypa/gh-action-pypi-publish@release/v1
+  #     - uses: pypa/gh-action-pypi-publish@release/v1
 """
