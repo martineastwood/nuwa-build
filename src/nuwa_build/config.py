@@ -1,7 +1,7 @@
 """Configuration management for Nuwa Build."""
 
 import sys
-from typing import Any, Dict
+from typing import Any
 
 # Python 3.11+ has tomllib built-in, otherwise use tomli
 if sys.version_info >= (3, 11):
@@ -13,7 +13,7 @@ else:
         tomllib = None  # type: ignore[assignment, unused-ignore]
 
 
-def get_default_config(project_name: str = "nuwa_project") -> Dict[str, Any]:
+def get_default_config(project_name: str = "nuwa_project") -> dict[str, Any]:
     """Return default configuration.
 
     Args:
@@ -36,7 +36,7 @@ def get_default_config(project_name: str = "nuwa_project") -> Dict[str, Any]:
     }
 
 
-def validate_config(config: Dict[str, Any]) -> None:
+def validate_config(config: dict[str, Any]) -> None:
     """Validate configuration has all required fields.
 
     Args:
@@ -64,7 +64,7 @@ def validate_config(config: Dict[str, Any]) -> None:
         raise ValueError("nim_source cannot be empty")
 
 
-def load_pyproject_toml() -> Dict[str, Any]:
+def load_pyproject_toml() -> dict[str, Any]:
     """Load and parse pyproject.toml.
 
     Returns:
@@ -75,13 +75,13 @@ def load_pyproject_toml() -> Dict[str, Any]:
 
     try:
         with open("pyproject.toml", "rb") as f:
-            data: Dict[str, Any] = tomllib.load(f)
+            data: dict[str, Any] = tomllib.load(f)
             return data
     except FileNotFoundError:
         return {}
 
 
-def parse_nuwa_config() -> Dict[str, Any]:
+def parse_nuwa_config() -> dict[str, Any]:
     """Parse Nuwa configuration from pyproject.toml with defaults.
 
     Reads [tool.nuwa] section from pyproject.toml and merges with defaults.
@@ -131,7 +131,7 @@ def parse_nuwa_config() -> Dict[str, Any]:
     return config
 
 
-def merge_cli_args(config: Dict[str, Any], cli_args: Dict[str, Any]) -> Dict[str, Any]:
+def merge_cli_args(config: dict[str, Any], cli_args: dict[str, Any]) -> dict[str, Any]:
     """Merge CLI argument overrides into config.
 
     CLI arguments take precedence over config file values.

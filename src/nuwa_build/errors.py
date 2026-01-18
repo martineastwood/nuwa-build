@@ -2,10 +2,10 @@
 
 import re
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 
 
-def parse_nim_error(stderr: str) -> Optional[Dict]:
+def parse_nim_error(stderr: str) -> Optional[dict]:
     """Parse a Nim compiler error into structured format.
 
     Args:
@@ -37,7 +37,7 @@ def parse_nim_error(stderr: str) -> Optional[Dict]:
 
 def get_error_context(
     file_path: Path, line_num: int, context_lines: int = 2
-) -> Tuple[List[str], int]:
+) -> tuple[list[str], int]:
     """Get source code context around an error.
 
     Args:
@@ -125,7 +125,7 @@ ERROR_SUGGESTIONS = {
 }
 
 
-def get_suggestions(error_message: str) -> List[str]:
+def get_suggestions(error_message: str) -> list[str]:
     """Get helpful suggestions based on error message.
 
     Args:

@@ -1,10 +1,9 @@
 """Source discovery for Nim projects."""
 
 from pathlib import Path
-from typing import List, Tuple
 
 
-def discover_nim_sources(config: dict) -> Tuple[Path, Path]:
+def discover_nim_sources(config: dict) -> tuple[Path, Path]:
     """Discover Nim entry point and source directory.
 
     Args:
@@ -39,7 +38,7 @@ def discover_nim_sources(config: dict) -> Tuple[Path, Path]:
     return discover_entry_point_fallback(nim_dir, config["module_name"])
 
 
-def discover_entry_point_fallback(nim_dir: Path, module_name: str) -> Tuple[Path, Path]:
+def discover_entry_point_fallback(nim_dir: Path, module_name: str) -> tuple[Path, Path]:
     """Fallback entry point discovery when explicit file not found.
 
     Strategy:
@@ -91,7 +90,7 @@ def discover_entry_point_fallback(nim_dir: Path, module_name: str) -> Tuple[Path
     )
 
 
-def validate_nim_project(nim_dir: Path, entry_point: Path) -> List[Path]:
+def validate_nim_project(nim_dir: Path, entry_point: Path) -> list[Path]:
     """Validate Nim project structure and return all .nim files.
 
     Args:

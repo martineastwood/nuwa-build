@@ -4,7 +4,7 @@ import logging
 import shutil
 import subprocess
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Optional
 
 from wheel.wheelfile import WheelFile
 
@@ -24,7 +24,7 @@ from .wheel_utils import write_wheel_metadata
 logger = logging.getLogger("nuwa")
 
 
-def _extract_metadata() -> Tuple[str, str]:
+def _extract_metadata() -> tuple[str, str]:
     """Extract project name and version from pyproject.toml.
 
     Returns:
@@ -84,10 +84,10 @@ def _build_nim_command(
     entry_point: Path,
     output_path: Path,
     build_type: str,
-    nim_flags: List,
+    nim_flags: list,
     nim_dir: Path,
     nimble_path: Optional[Path] = None,
-) -> List[str]:
+) -> list[str]:
     """Build the Nim compiler command.
 
     Args:
@@ -177,7 +177,7 @@ def _determine_output_path(config: dict, inplace: bool) -> Path:
 
 
 def _run_compilation(
-    cmd: List[str], entry_point: Path, out_path: Path
+    cmd: list[str], entry_point: Path, out_path: Path
 ) -> subprocess.CompletedProcess:
     """Execute the Nim compiler command.
 

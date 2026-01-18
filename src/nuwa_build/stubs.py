@@ -3,7 +3,6 @@
 import json
 import logging
 from pathlib import Path
-from typing import Dict, List
 
 logger = logging.getLogger("nuwa")
 
@@ -18,7 +17,7 @@ class StubGenerator:
             module_name: Name of the Python module (e.g., "my_extension_lib")
         """
         self.module_name = module_name
-        self.entries: List[Dict] = []
+        self.entries: list[dict] = []
 
     def parse_compiler_output(self, output: str) -> int:
         """Extract JSON metadata from compiler output.
@@ -117,7 +116,7 @@ class StubGenerator:
         return pyi_path
 
 
-def find_pyi_files(directory: Path) -> List[Path]:
+def find_pyi_files(directory: Path) -> list[Path]:
     """Find all .pyi files in a directory.
 
     Args:

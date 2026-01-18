@@ -1,7 +1,7 @@
 """Wheel building utilities for Nuwa Build."""
 
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Optional
 
 from wheel.wheelfile import WheelFile
 
@@ -41,7 +41,7 @@ def build_wheel_file(
     wheel_directory: str,
     name: str,
     version: str,
-    files_to_add: Dict[str, str],
+    files_to_add: dict[str, str],
     tag: Optional[str] = None,
 ) -> str:
     """Build a wheel file with the given files.
