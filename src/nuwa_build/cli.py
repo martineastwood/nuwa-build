@@ -12,11 +12,6 @@ import time
 from pathlib import Path
 from typing import Optional
 
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib
-
 from . import __version__
 from .backend import _compile_nim
 from .config import ConfigResolver, parse_nuwa_config
@@ -91,25 +86,6 @@ def handle_cli_error(error: Exception, context: str = "") -> None:
         logger.error(f"{context}: {error}", exc_info=True)
 
     sys.exit(1)
-
-
-def safe_run_command(command_func):
-    """Decorator to handle errors consistently in CLI commands.
-
-    Args:
-        command_func: The CLI command function to wrap
-
-    Returns:
-        Wrapped function with consistent error handling
-    """
-
-    def wrapper(args: argparse.Namespace):
-        try:
-            return command_func(args)
-        except Exception as e:
-            handle_cli_error(e, context=f"Error in {command_func.__name__}")
-
-    return wrapper
 
 
 def validate_project_name(name: str) -> None:
@@ -240,7 +216,7 @@ def run_new(args: argparse.Namespace) -> None:
     validate_module_name(module_name)
 
     if path.exists() and any(path.iterdir()):
-        sys.exit(f"❌ Error: Directory '{path}' is not empty.")
+        raise ValueError(f"Directory '{path}' is not empty.")
 
     print(f"✨ Creating new Nuwa project: {name}")
 
@@ -443,13 +419,95 @@ def run_clean(args: argparse.Namespace) -> None:
             print(f"   {error}")
 
 
+class NimFileHandler:
+    """Handle Nim file modification events for watch mode."""
+
+    def __init__(
+        self,
+        build_type: str,
+        config_overrides: Optional[dict],
+        run_tests: bool,
+        debounce_delay: float,
+    ):
+        """Initialize the file handler.
+
+        Args:
+            build_type: "debug" or "release"
+            config_overrides: Optional config overrides
+            run_tests: Whether to run tests after compilation
+            debounce_delay: Delay in seconds between compilations
+        """
+        from watchdog.events import FileSystemEventHandler
+
+        self.build_type = build_type
+        self.config_overrides = config_overrides
+        self.run_tests = run_tests
+        self.debounce_delay = debounce_delay
+        self.last_compile: float = 0.0
+
+        # Create a proxy handler to avoid mypy "Cannot assign to a method" error
+        class _ProxyHandler(FileSystemEventHandler):
+            def on_modified(_, event):
+                self.on_modified(event)
+
+        self.handler = _ProxyHandler()
+
+    def on_modified(self, event) -> None:
+        """Handle file modification events.
+
+        Args:
+            event: Watchdog file system event
+        """
+        # Only process .nim files
+        if not event.src_path.endswith(".nim"):
+            return
+
+        # Debounce: wait for file changes to settle
+        now = time.time()
+        if now - self.last_compile < self.debounce_delay:
+            return
+
+        self.last_compile = now
+
+        # Get relative path for cleaner output
+        rel_path = Path(event.src_path).relative_to(Path.cwd())
+        print(f"\n📝 {rel_path} modified")
+
+        try:
+            out = _compile_nim(
+                build_type=self.build_type,
+                inplace=True,
+                config_overrides=self.config_overrides,
+            )
+            print(f"✅ Built {out.name}")
+
+            if self.run_tests:
+                print("🧪 Running tests...")
+                result = subprocess.run(["pytest", "-v"], capture_output=False)
+                if result.returncode == 0:
+                    print("✅ Tests passed!")
+                else:
+                    print("❌ Tests failed")
+
+        except Exception as e:
+            # Format error consistently but continue watching
+            error_msg = format_error(e)
+            if error_msg:
+                print(error_msg)
+            else:
+                # CalledProcessError already formatted by backend
+                pass
+            logger.debug(f"Compilation error in watch mode: {e}")
+
+        print("👀 Watching for changes... (Ctrl+C to stop)")
+
+
 def run_watch(args: argparse.Namespace) -> None:
     """Watch for file changes and recompile automatically.
 
     Args:
         args: Parsed command-line arguments
     """
-    from watchdog.events import FileSystemEventHandler
     from watchdog.observers import Observer
 
     config_overrides = build_config_overrides(args)
@@ -461,69 +519,20 @@ def run_watch(args: argparse.Namespace) -> None:
     watch_dir = Path(config["nim_source"])
 
     if not watch_dir.exists():
-        sys.exit(f"❌ Nim source directory not found: {watch_dir}")
+        raise FileNotFoundError(f"Nim source directory not found: {watch_dir}")
 
     build_type = "release" if args.release else "debug"
-
-    # Debounce timer to avoid multiple compilations
-    last_compile: float = 0.0
     debounce_delay = DEFAULT_DEBOUNCE_DELAY
 
-    class NimFileHandler(FileSystemEventHandler):
-        """Handle Nim file modification events."""
-
-        def on_modified(self, event):
-            nonlocal last_compile
-
-            # Only process .nim files
-            if not event.src_path.endswith(".nim"):
-                return
-
-            # Debounce: wait for file changes to settle
-            now = time.time()
-            if now - last_compile < debounce_delay:
-                return
-
-            last_compile = now
-
-            # Get relative path for cleaner output
-            rel_path = Path(event.src_path).relative_to(Path.cwd())
-            print(f"\n📝 {rel_path} modified")
-
-            try:
-                out = _compile_nim(
-                    build_type=build_type,
-                    inplace=True,
-                    config_overrides=config_overrides,
-                )
-                print(f"✅ Built {out.name}")
-
-                if args.run_tests:
-                    print("🧪 Running tests...")
-                    import subprocess
-
-                    result = subprocess.run(["pytest", "-v"], capture_output=False)
-                    if result.returncode == 0:
-                        print("✅ Tests passed!")
-                    else:
-                        print("❌ Tests failed")
-
-            except Exception as e:
-                # Format error consistently but continue watching
-                error_msg = format_error(e)
-                if error_msg:
-                    print(error_msg)
-                else:
-                    # CalledProcessError already formatted by backend
-                    pass
-                logger.debug(f"Compilation error in watch mode: {e}")
-
-            print("👀 Watching for changes... (Ctrl+C to stop)")
-
-    # Set up observer
-    event_handler = NimFileHandler()
+    # Set up observer with module-level NimFileHandler
+    event_handler = NimFileHandler(
+        build_type=build_type,
+        config_overrides=config_overrides,
+        run_tests=args.run_tests,
+        debounce_delay=debounce_delay,
+    )
     observer = Observer()
-    observer.schedule(event_handler, str(watch_dir), recursive=True)
+    observer.schedule(event_handler.handler, str(watch_dir), recursive=True)
 
     # Initial compilation
     print(f"🚀 Starting watch mode for {watch_dir}/")
@@ -560,42 +569,57 @@ def run_watch(args: argparse.Namespace) -> None:
         observer.join()
 
 
-def run_init(args: argparse.Namespace) -> None:
-    """Initialize Nuwa in an existing project.
+def _determine_project_name(path: Path, pyproject_path: Path) -> str:
+    """Determine project name from pyproject.toml or directory name.
 
     Args:
-        args: Parsed command-line arguments
+        path: Project path
+        pyproject_path: Path to pyproject.toml
+
+    Returns:
+        Project name
     """
-    path = Path(args.path or ".")
+    import sys
 
-    # 1. Determine Project Name
+    if sys.version_info >= (3, 11):
+        import tomllib
+    else:
+        import tomli as tomllib
+
     project_name = "my_project"
-    pyproject_path = path / "pyproject.toml"
-
-    # We read the content once
-    content = ""
     if pyproject_path.exists():
-        content = pyproject_path.read_text(encoding="utf-8")
         try:
-            # Parse to find name safely
-            data = tomllib.loads(content)
-            project_name = data.get("project", {}).get("name", project_name)
+            with open(pyproject_path, "rb") as f:
+                pyproject = tomllib.load(f)
+                project_name = pyproject.get("project", {}).get("name", project_name)
         except Exception:
             # Fallback if file is currently invalid TOML
             project_name = path.resolve().name
     else:
         project_name = path.resolve().name
 
-    # Normalize names
-    module_name = normalize_package_name(project_name)
-    lib_name = f"{module_name}_lib"
+    return project_name
 
-    print(f"✨ Initializing Nuwa for project: {project_name}")
 
-    # 2. Handle pyproject.toml injection
+def _update_pyproject_toml(pyproject_path: Path, module_name: str, project_name: str) -> None:
+    """Update or create pyproject.toml with Nuwa configuration.
+
+    Args:
+        pyproject_path: Path to pyproject.toml
+        module_name: Python module name
+        project_name: Project name
+    """
+    import sys
+
+    if sys.version_info >= (3, 11):
+        import tomllib
+    else:
+        import tomli as tomllib
+
     if pyproject_path.exists():
         try:
-            current_config = tomllib.loads(content)
+            with open(pyproject_path, "rb") as f:
+                current_config = tomllib.load(f)
         except Exception:
             print("❌ Error: Existing pyproject.toml is invalid. Cannot modify safely.")
             return
@@ -625,7 +649,6 @@ def run_init(args: argparse.Namespace) -> None:
             print("➕ Adding [tool.nuwa] config to pyproject.toml")
             with open(pyproject_path, "a", encoding="utf-8") as f:
                 f.write(TOOL_NUWA_SECTION.format(module_name=module_name))
-
     else:
         # Create fresh pyproject.toml
         print("📄 Creating pyproject.toml")
@@ -634,29 +657,43 @@ def run_init(args: argparse.Namespace) -> None:
             f.write(BUILD_SYSTEM_SECTION)
             f.write(TOOL_NUWA_SECTION.format(module_name=module_name))
 
-    # 3. Create Nim Directory (Non-destructive)
+
+def _create_nim_scaffolding(path: Path, module_name: str, lib_name: str) -> None:
+    """Create Nim directory structure and source files.
+
+    Args:
+        path: Project path
+        module_name: Python module name
+        lib_name: Library name for compiled extension
+    """
     nim_dir = path / "nim"
     if not nim_dir.exists():
-        print("Pg  Creating nim/ directory")
+        print("📄 Creating nim/ directory")
         nim_dir.mkdir(exist_ok=True)
 
         # Entry point
         entry_file = nim_dir / f"{lib_name}.nim"
         if not entry_file.exists():
-            print(f"Pg  Creating nim/{entry_file.name}")
+            print(f"📄 Creating nim/{entry_file.name}")
             with open(entry_file, "w", encoding="utf-8") as f:
                 f.write(LIB_NIM.format(module_name=module_name))
 
         # Helpers
         helpers_file = nim_dir / "helpers.nim"
         if not helpers_file.exists():
-            print("Pg  Creating nim/helpers.nim")
+            print("📄 Creating nim/helpers.nim")
             with open(helpers_file, "w", encoding="utf-8") as f:
                 f.write(HELPERS_NIM.format(module_name=module_name))
     else:
         print("ℹ️  nim/ directory already exists. Skipping Nim scaffolding.")
 
-    # 4. Gitignore (Append if exists)
+
+def _update_gitignore(path: Path) -> None:
+    """Update or create .gitignore with Nuwa build artifacts.
+
+    Args:
+        path: Project path
+    """
     gitignore_path = path / ".gitignore"
     if gitignore_path.exists():
         git_content = gitignore_path.read_text(encoding="utf-8")
@@ -665,9 +702,37 @@ def run_init(args: argparse.Namespace) -> None:
             with open(gitignore_path, "a", encoding="utf-8") as f:
                 f.write("\n# Nuwa Build Artifacts\n*.so\n*.pyd\nnimcache/\n.nimble/\ndist/\n")
     else:
-        print("Pg  Creating .gitignore")
+        print("📄 Creating .gitignore")
         with open(gitignore_path, "w", encoding="utf-8") as f:
             f.write(GITIGNORE)
+
+
+def run_init(args: argparse.Namespace) -> None:
+    """Initialize Nuwa in an existing project.
+
+    Args:
+        args: Parsed command-line arguments
+    """
+    path = Path(args.path or ".")
+    pyproject_path = path / "pyproject.toml"
+
+    # 1. Determine Project Name
+    project_name = _determine_project_name(path, pyproject_path)
+
+    # Normalize names
+    module_name = normalize_package_name(project_name)
+    lib_name = f"{module_name}_lib"
+
+    print(f"✨ Initializing Nuwa for project: {project_name}")
+
+    # 2. Handle pyproject.toml injection
+    _update_pyproject_toml(pyproject_path, module_name, project_name)
+
+    # 3. Create Nim Directory (Non-destructive)
+    _create_nim_scaffolding(path, module_name, lib_name)
+
+    # 4. Gitignore (Append if exists)
+    _update_gitignore(path)
 
     print("\n✅ Initialization complete!")
     print("   Run 'nuwa develop' to compile your first extension")

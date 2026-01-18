@@ -19,7 +19,6 @@ from nuwa_build.cli import (
 from nuwa_build.constants import (
     DEFAULT_DEBOUNCE_DELAY,
     NIM_APP_LIB_FLAG,
-    SHARED_LIBRARY_PERMISSIONS,
 )
 from nuwa_build.utils import normalize_package_name
 
@@ -288,11 +287,6 @@ class TestConstants:
         """Test NIM_APP_LIB_FLAG constant."""
         assert NIM_APP_LIB_FLAG == "--app:lib"
         assert isinstance(NIM_APP_LIB_FLAG, str)
-
-    def test_shared_library_permissions(self):
-        """Test SHARED_LIBRARY_PERMISSIONS constant."""
-        assert SHARED_LIBRARY_PERMISSIONS == 0o100755 << 16
-        assert isinstance(SHARED_LIBRARY_PERMISSIONS, int)
 
     def test_default_debounce_delay(self):
         """Test DEFAULT_DEBOUNCE_DELAY constant."""

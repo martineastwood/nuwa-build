@@ -131,11 +131,16 @@ entry-point = "{module_name}_lib.nim"
     ) -> Path:
         """Compile Nim code from string using cache directory.
 
-        This adapts the existing _compile_nim() workflow:
+        NOTE: This function duplicates some logic from backend.py:_compile_nim()
+        because it needs to support compiling from string input (for Jupyter) rather
+        than from file paths. The workflow is:
         1. Reuses check_nim_installed(), get_platform_extension()
         2. Reuses _build_nim_command() for compiler invocation
         3. Reuses _run_compilation() for subprocess execution
         4. Reuses _generate_type_stubs() for .pyi generation
+
+        TODO: Consider refactoring backend.py:_compile_nim() to support optional
+        entry_point and output_path parameters to reduce this duplication.
 
         Args:
             nim_code: Nim source code as string

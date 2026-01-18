@@ -49,15 +49,6 @@ proc make_greeting(name: string): string =
   return "Hello, " & name & "!"
 """
 
-INIT_PY = """\"\"\"
-{module_name} - A Nim extension for Python
-
-This package provides Python bindings to Nim-compiled functions.
-\"\"\"
-
-__version__ = "0.1.0"
-"""
-
 GITIGNORE = """# Python
 __pycache__/
 *.py[cod]
