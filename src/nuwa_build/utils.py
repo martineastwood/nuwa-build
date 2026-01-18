@@ -12,6 +12,25 @@ from typing import Optional
 from packaging.tags import sys_tags
 
 
+def normalize_package_name(name: str) -> str:
+    """Normalize a package name by replacing hyphens with underscores.
+
+    Per PEP 427, wheel filenames and dist-info directories must use underscores
+    even if the package name uses hyphens.
+
+    Args:
+        name: Package name that may contain hyphens
+
+    Returns:
+        Normalized package name with underscores
+
+    Example:
+        >>> normalize_package_name("my-package")
+        'my_package'
+    """
+    return name.replace("-", "_")
+
+
 def check_nim_installed() -> None:
     """Check if Nim compiler is installed and accessible.
 
@@ -55,8 +74,7 @@ def get_wheel_tags(name: str, version: str) -> str:
         Wheel filename with proper tags
     """
     # Normalize package name: replace hyphens with underscores
-    # Per PEP 427, wheel filenames must use underscores even if the package name uses hyphens
-    name_normalized = name.replace("-", "_")
+    name_normalized = normalize_package_name(name)
 
     # Get the most specific tag for the current system
     # sys_tags() yields compatible tags in order of specificity (most specific first)

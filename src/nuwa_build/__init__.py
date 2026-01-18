@@ -1,8 +1,8 @@
 """Nuwa Build - The Maturin for Nim."""
 
-__version__ = "0.3.1"
+__version__ = "0.3.5"
 
-from .backend import (
+from .pep517_hooks import (
     build_editable,
     build_sdist,
     build_wheel,
@@ -20,3 +20,12 @@ __all__ = [
     "get_requires_for_build_sdist",
     "get_requires_for_build_editable",
 ]
+
+# Optional IPython integration
+try:
+    from .magic import load_ipython_extension  # noqa: F401
+
+    __all__.append("load_ipython_extension")
+except ImportError:
+    # IPython not installed, skip magic commands
+    pass

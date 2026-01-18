@@ -119,6 +119,106 @@ nuwa watch --run-tests
 nuwa watch --release
 ```
 
+## Jupyter Notebook Support
+
+Nuwa-Build includes a Jupyter magic command for compiling Nim code directly in notebooks.
+
+### Installation
+
+```bash
+pip install nuwa-build[jupyter]
+```
+
+### Usage
+
+```python
+# Load the extension
+%load_ext nuwa_build.magic
+
+# Compile Nim code in a cell
+%%nuwa
+proc add(a, b: int): int {.exportpy.} =
+    return a + b
+
+# Use the function immediately (no import needed!)
+add(1, 2)  # Output: 3
+```
+
+### Caching
+
+Nuwa automatically caches compiled modules in `.nuwacache/`:
+
+- **Cache hits**: Re-running cells uses cached compilation (fast!)
+- **Cache misses**: New code or different flags trigger recompilation
+- **Persistent**: Cache survives kernel restarts
+
+#### Cache Management
+
+```python
+# Show cache statistics
+%nuwa_cache_info
+# Output: 📊 Cache: 3 modules, 123.4 KB
+#         📍 Location: /path/to/.nuwacache
+
+# Clear cache (e.g., to force rebuild or free space)
+%nuwa_cleanup
+# Output: 🧹 Cleared cache: .nuwacache
+```
+
+Or manually delete the `.nuwacache/` folder.
+
+#### .gitignore
+
+Add to your `.gitignore`:
+```
+.nuwacache/
+```
+
+### Compiler Flags
+
+Pass Nim compiler flags on the magic line:
+
+```python
+%%nuwa -d:release --opt:speed
+proc optimized_func(n: int): int {.exportpy.} =
+    # Optimized implementation
+    ...
+```
+
+Different flags create different cache entries (code hash includes flags).
+
+### Example
+
+```python
+# Cell 1: Load extension
+%load_ext nuwa_build.magic
+
+# Cell 2: Compile simple function
+%%nuwa
+proc greet(name: string): string {.exportpy.} =
+    return "Hello, " & name & "!"
+
+# Cell 3: Use immediately
+print(greet("World"))  # Output: Hello, World!
+
+# Cell 4: Multiple functions
+%%nuwa
+proc add(a, b: int): int {.exportpy.} = a + b
+proc multiply(a, b: int): int {.exportpy.} = a * b
+
+print(add(5, 3))      # 8
+print(multiply(4, 7)) # 28
+
+# Cell 5: With compiler flags
+%%nuwa -d:release
+proc fibonacci(n: int): int {.exportpy.} =
+    if n <= 1:
+        return n
+    return fibonacci(n-1) + fibonacci(n-2)
+
+print(fibonacci(10))  # 55 (optimized)
+```
+
 ### Install and Distribute
 
 ```bash
@@ -437,14 +537,88 @@ print(sum_result)  # 15
 6. **Output**: Generates proper `{lib_name}.so` (Linux/Mac) or `{lib_name}.pyd` (Windows) in the module directory
 7. **Ready to use**: Module is immediately importable from the project root
 
+## Architecture
+
+Nuwa Build is organized into focused modules with clear responsibilities:
+
+### Core Modules
+
+- **`backend.py`** - Core compilation logic
+  - Nim compiler invocation and subprocess management
+  - Build environment setup and dependency installation
+  - Type stub generation from compiler metadata
+
+- **`pep517_hooks.py`** - PEP 517/660 build backend
+  - Wheel building (`build_wheel`, `build_editable`)
+  - Source distribution creation (`build_sdist`)
+  - Wheel file management and metadata generation
+
+- **`cli.py`** - Command-line interface
+  - User-facing commands (`new`, `init`, `develop`, `watch`, `build`, `clean`)
+  - Project scaffolding and validation
+  - File watching and auto-recompilation
+
+- **`config.py`** - Configuration management
+  - Loads and merges settings from `pyproject.toml` and CLI arguments
+  - `ConfigResolver` class for unified configuration workflow
+  - Validation and defaults handling
+
+- **`discovery.py`** - Source file discovery
+  - Finds entry point `.nim` files
+  - Validates Nim project structure
+  - Heuristic fallback for single-file projects
+
+- **`utils.py`** - Shared utilities
+  - Platform detection (`.so` vs `.pyd`)
+  - Wheel tag generation with Python 3.14+ ABI support
+  - Nimble dependency installation
+  - Package name normalization
+
+- **`wheel_utils.py`** - Wheel building helpers
+  - Wheel metadata writing (WHEEL, METADATA files)
+  - Wheel file construction using `WheelFile`
+
+- **`stubs.py`** - Type stub generation
+  - Parses `NUWA_STUB:` JSON metadata from compiler output
+  - Generates `.pyi` files for IDE support
+
+- **`errors.py`** - Error formatting
+  - Parses Nim compiler errors
+  - Formats errors with context and suggestions
+  - User-friendly error display
+
+- **`magic.py`** - IPython/Jupyter integration
+  - `%%nuwa` magic for compiling Nim in notebooks
+  - Automatic caching and module injection
+  - Cache management commands
+
+### Design Patterns
+
+- **Separation of Concerns**: CLI, compilation, and PEP 517 hooks are in separate modules
+- **Context Managers**: Used for resource cleanup (temporary directories, working directories)
+- **Configuration Hierarchy**: CLI args → `pyproject.toml` → defaults
+- **Standard Library First**: Uses `wheel.WheelFile` for PEP 427 compliance
+- **Subprocess-based**: Shells out to Nim compiler instead of linking
+
+### Development
+
+The codebase follows best practices:
+
+- Full type hints with mypy checking
+- Comprehensive error handling with user-friendly messages
+- Proper logging (using `logging.getLogger("nuwa")`)
+- 124+ unit tests with pytest
+- Ruff linting and formatting
+
 ### Contributing
 
 Contributions are welcome! The codebase is well-organized with:
 
-- Full type hints
+- Full type hints and mypy validation
 - Comprehensive error handling
 - Proper logging support
 - Context managers for resource management
+- Clear module boundaries and separation of concerns
 
 ## Troubleshooting
 

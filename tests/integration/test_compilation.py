@@ -13,8 +13,8 @@ if sys.version_info >= (3, 11):
 else:
     import tomli as tomllib
 
-from nuwa_build.backend import build_editable, build_wheel
 from nuwa_build.cli import run_build, run_new
+from nuwa_build.pep517_hooks import build_editable, build_wheel
 
 
 @pytest.mark.integration

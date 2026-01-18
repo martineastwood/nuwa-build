@@ -221,3 +221,4 @@ CLAUDE.md
 repomix-output.xml
 .nimble/
 debug_project/
+.nuwacache

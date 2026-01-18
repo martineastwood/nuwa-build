@@ -18,9 +18,10 @@ else:
     import tomli as tomllib
 
 from . import __version__
-from .backend import _compile_nim, build_wheel
-from .config import parse_nuwa_config
+from .backend import _compile_nim
+from .config import ConfigResolver, parse_nuwa_config
 from .constants import DEFAULT_DEBOUNCE_DELAY
+from .pep517_hooks import build_wheel
 from .templates import (
     BUILD_SYSTEM_SECTION,
     EXAMPLE_PY,
@@ -34,6 +35,7 @@ from .templates import (
     TEST_PY,
     TOOL_NUWA_SECTION,
 )
+from .utils import normalize_package_name
 
 logger = logging.getLogger("nuwa")
 
@@ -135,7 +137,7 @@ def validate_project_name(name: str) -> None:
         raise ValueError("Project name must start with a letter or underscore")
 
     # Check for Python keywords (after normalization)
-    module_name = name.replace("-", "_")
+    module_name = normalize_package_name(name)
     if module_name in sys.modules or hasattr(builtins, module_name):
         raise ValueError(
             f"Project name '{name}' conflicts with Python keyword/builtin '{module_name}'"
@@ -231,7 +233,7 @@ def run_new(args: argparse.Namespace) -> None:
     name = args.name if args.name else path.name
     validate_project_name(name)
 
-    module_name = name.replace("-", "_")  # Python import safety
+    module_name = normalize_package_name(name)  # Python import safety
     lib_name = f"{module_name}_lib"  # Compiled extension module name
 
     # Validate module name
@@ -452,14 +454,9 @@ def run_watch(args: argparse.Namespace) -> None:
 
     config_overrides = build_config_overrides(args)
 
-    # Load configuration to get nim source directory
-    from .config import parse_nuwa_config
-
-    config = parse_nuwa_config()
-    if config_overrides:
-        from .config import merge_cli_args
-
-        config = merge_cli_args(config, config_overrides)
+    # Load and resolve configuration
+    resolver = ConfigResolver(cli_overrides=config_overrides)
+    config = resolver.resolve()
 
     watch_dir = Path(config["nim_source"])
 
@@ -590,7 +587,7 @@ def run_init(args: argparse.Namespace) -> None:
         project_name = path.resolve().name
 
     # Normalize names
-    module_name = project_name.replace("-", "_")
+    module_name = normalize_package_name(project_name)
     lib_name = f"{module_name}_lib"
 
     print(f"✨ Initializing Nuwa for project: {project_name}")

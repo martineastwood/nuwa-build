@@ -1,7 +1,7 @@
 """Configuration management for Nuwa Build."""
 
 import sys
-from typing import Any
+from typing import Any, Optional
 
 # Python 3.11+ has tomllib built-in, otherwise use tomli
 if sys.version_info >= (3, 11):
@@ -22,7 +22,9 @@ def get_default_config(project_name: str = "nuwa_project") -> dict[str, Any]:
     Returns:
         Dictionary with default configuration values
     """
-    module_name = project_name.replace("-", "_")
+    from .utils import normalize_package_name
+
+    module_name = normalize_package_name(project_name)
     lib_name = f"{module_name}_lib"
     return {
         "nim_source": "nim",
@@ -158,3 +160,35 @@ def merge_cli_args(config: dict[str, Any], cli_args: dict[str, Any]) -> dict[str
         result["nim_flags"] = result.get("nim_flags", []) + cli_args["nim_flags"]
 
     return result
+
+
+class ConfigResolver:
+    """Centralized configuration resolution with CLI override support.
+
+    This class encapsulates the workflow of loading configuration from pyproject.toml,
+    applying CLI overrides, and validating the result.
+    """
+
+    def __init__(self, cli_overrides: Optional[dict[str, Any]] = None):
+        """Initialize the ConfigResolver.
+
+        Args:
+            cli_overrides: Optional dictionary of CLI argument overrides
+        """
+        self.cli_overrides = cli_overrides
+
+    def resolve(self) -> dict[str, Any]:
+        """Load, merge, and validate configuration.
+
+        Returns:
+            Resolved configuration dictionary
+
+        Raises:
+            ValueError: If configuration is invalid
+        """
+        config = parse_nuwa_config()
+
+        if self.cli_overrides:
+            config = merge_cli_args(config, self.cli_overrides)
+
+        return config

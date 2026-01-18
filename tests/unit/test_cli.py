@@ -21,6 +21,7 @@ from nuwa_build.constants import (
     NIM_APP_LIB_FLAG,
     SHARED_LIBRARY_PERMISSIONS,
 )
+from nuwa_build.utils import normalize_package_name
 
 
 class TestValidateProjectName:
@@ -307,7 +308,7 @@ class TestValidationIntegration:
         project_name = "my-awesome-project"
         validate_project_name(project_name)
 
-        module_name = project_name.replace("-", "_")
+        module_name = normalize_package_name(project_name)
         validate_module_name(module_name)
 
     def test_invalid_project_cannot_become_valid_module(self):

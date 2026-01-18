@@ -5,7 +5,7 @@ from typing import Optional
 
 from wheel.wheelfile import WheelFile
 
-from .utils import get_wheel_tags
+from .utils import get_wheel_tags, normalize_package_name
 
 
 def write_wheel_metadata(wf: WheelFile, name: str, version: str, tag: str = "py3-none-any") -> str:
@@ -22,7 +22,7 @@ def write_wheel_metadata(wf: WheelFile, name: str, version: str, tag: str = "py3
     """
     # Normalize package name for dist-info directory
     # Per PEP 427, dist-info directories must also use underscores
-    name_normalized = name.replace("-", "_")
+    name_normalized = normalize_package_name(name)
     dist_info = f"{name_normalized}-{version}.dist-info"
 
     wf.writestr(
@@ -59,8 +59,7 @@ def build_wheel_file(
         The wheel filename
     """
     # Normalize package name: replace hyphens with underscores
-    # Per PEP 427, wheel filenames must use underscores even if the package name uses hyphens
-    name_normalized = name.replace("-", "_")
+    name_normalized = normalize_package_name(name)
 
     wheel_name = (
         get_wheel_tags(name, version) if tag is None else f"{name_normalized}-{version}-{tag}.whl"
