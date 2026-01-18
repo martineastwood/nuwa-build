@@ -23,6 +23,7 @@ classifiers = [
     "Topic :: Software Development :: Build Tools",
 ]
 dependencies = [
+    "ipython >= 7.0.0",
     "packaging >= 23.0",
     "tomli >= 1.2.0 ; python_version < '3.11'",
     "watchdog >= 5.0.0",
