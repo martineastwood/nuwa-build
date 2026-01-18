@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nuwa-build"
-version = "0.3.0"
+version = "0.3.1"
 description = "Build and publish Nim extensions for Python with zero configuration."
 readme = "README.md"
 authors = [{ name = "Martin Eastwood", email = "martin.eastwood@gmx.com" }]
@@ -19,9 +19,14 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Build Tools",
 ]
-dependencies = ["tomli >= 1.2.0 ; python_version < '3.11'", "watchdog >= 5.0.0"]
+dependencies = [
+    "tomli >= 1.2.0 ; python_version < '3.11'",
+    "watchdog >= 5.0.0",
+    "wheel >= 0.40.0",
+]
 
 [project.optional-dependencies]
 test = ["pytest >= 7.0.0", "pytest-cov >= 4.0.0"]

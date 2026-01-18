@@ -4,11 +4,12 @@ import os
 import shutil
 import subprocess
 import sys
-import sysconfig
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional
+
+from packaging.tags import sys_tags
 
 
 def check_nim_installed() -> None:
@@ -43,6 +44,9 @@ def get_platform_extension() -> str:
 def get_wheel_tags(name: str, version: str) -> str:
     """Generate wheel filename with proper platform tags.
 
+    Uses packaging.tags to correctly determine Python, ABI, and platform tags,
+    including support for Python 3.14+ free-threaded builds (cp314t ABI tags).
+
     Args:
         name: Package name
         version: Package version
@@ -50,30 +54,19 @@ def get_wheel_tags(name: str, version: str) -> str:
     Returns:
         Wheel filename with proper tags
     """
-
     # Normalize package name: replace hyphens with underscores
     # Per PEP 427, wheel filenames must use underscores even if the package name uses hyphens
     name_normalized = name.replace("-", "_")
 
-    # Python tag (e.g., "cp313")
-    impl = sys.implementation.name
-    version_str = f"{sys.version_info.major}{sys.version_info.minor}"
-    python_tag = "cp" + version_str if impl == "cpython" else impl + version_str
+    # Get the most specific tag for the current system
+    # sys_tags() yields compatible tags in order of specificity (most specific first)
+    # This automatically handles:
+    # - Python interpreter tags (cp313, cp314, etc.)
+    # - Free-threaded ABI tags (cp314t, etc.) for Python 3.14+
+    # - Platform-specific tags (macosx, win_amd64, etc.)
+    tag = next(sys_tags())
 
-    # ABI tag (e.g., "cp313" for stable ABI)
-    # SOABI on Darwin is like "cpython-313-darwin", we need just "cp313"
-    soabi = sysconfig.get_config_var("SOABI")
-    if soabi:
-        # Extract the ABI part (e.g., "cpython-313" -> "cp313")
-        abi_parts = soabi.split("-")[0:2]
-        abi = abi_parts[0][:2] + abi_parts[1] if len(abi_parts) > 1 else "none"
-    else:
-        abi = "none"
-
-    # Platform tag (e.g., "macosx_10_13_universal2")
-    platform = sysconfig.get_platform().replace("-", "_").replace(".", "_")
-
-    return f"{name_normalized}-{version}-{python_tag}-{abi}-{platform}.whl"
+    return f"{name_normalized}-{version}-{tag}.whl"
 
 
 @contextmanager

@@ -1,16 +1,15 @@
 """Core compilation functionality for Nuwa Build."""
 
-import base64
-import hashlib
 import logging
 import shutil
 import subprocess
-import zipfile
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+from wheel.wheelfile import WheelFile
+
 from .config import load_pyproject_toml, merge_cli_args, parse_nuwa_config
-from .constants import NIM_APP_LIB_FLAG, SHARED_LIBRARY_PERMISSIONS
+from .constants import NIM_APP_LIB_FLAG
 from .discovery import discover_nim_sources, validate_nim_project
 from .errors import format_compilation_error, format_compilation_success
 from .stubs import StubGenerator
@@ -311,142 +310,87 @@ def _compile_nim(
 # --- PEP 517 Hooks ---
 
 
-def _calculate_file_hash_and_size(data: bytes) -> Tuple[str, int]:
-    """Calculate SHA256 hash and size for file data.
-
-    Args:
-        data: File content as bytes
-
-    Returns:
-        Tuple of (hash string, size in bytes)
-    """
-    digest = hashlib.sha256(data).digest()
-    hash_str = "sha256=" + base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
-    return hash_str, len(data)
-
-
-def _write_wheel_file(
-    zf: zipfile.ZipFile,
-    arcname: str,
-    data: bytes,
-    record_lines: List[str],
-    permissions: Optional[int] = None,
-) -> None:
-    """Write a file to the wheel and record it for the RECORD.
-
-    Args:
-        zf: ZipFile object to write to
-        arcname: Archive name for the file
-        data: File content as bytes
-        record_lines: List to append RECORD entry to
-        permissions: Optional Unix permissions (external_attr)
-    """
-    if permissions:
-        info = zipfile.ZipInfo(filename=arcname)
-        info.external_attr = permissions
-        zf.writestr(info, data)
-    else:
-        zf.writestr(arcname, data)
-
-    h, size = _calculate_file_hash_and_size(data)
-    record_lines.append(f"{arcname},{h},{size}")
-
-
-def _add_python_package_files(
-    zf: zipfile.ZipFile,
-    name_normalized: str,
-    record_lines: List[str],
-) -> None:
+def _add_python_package_files(wf: WheelFile, name_normalized: str) -> None:
     """Add Python package files to the wheel.
 
     Args:
-        zf: ZipFile object to write to
+        wf: WheelFile object to write to
         name_normalized: Normalized package name
-        record_lines: List to append RECORD entries to
     """
     package_dir = Path(name_normalized)
     if package_dir.exists():
         for py_file in package_dir.rglob("*.py"):
             arcname = str(py_file)
-            data = py_file.read_bytes()
-            _write_wheel_file(zf, arcname, data, record_lines)
+            wf.write(str(py_file), arcname=arcname)
 
 
 def _add_compiled_extension(
-    zf: zipfile.ZipFile,
+    wf: WheelFile,
     so_file: Path,
     name_normalized: str,
     lib_name: str,
     ext: str,
-    record_lines: List[str],
 ) -> None:
     """Add compiled extension to the wheel.
 
     Args:
-        zf: ZipFile object to write to
+        wf: WheelFile object to write to
         so_file: Path to compiled .so/.pyd file
         name_normalized: Normalized package name
         lib_name: Library name (without extension)
         ext: Platform-specific extension (.so/.pyd)
-        record_lines: List to append RECORD entries to
     """
     arcname = f"{name_normalized}/{lib_name}{ext}"
-    with open(so_file, "rb") as f:
-        so_content = f.read()
-    _write_wheel_file(zf, arcname, so_content, record_lines, permissions=SHARED_LIBRARY_PERMISSIONS)
+    # Write with proper permissions for shared library
+    wf.write(str(so_file), arcname=arcname)
 
 
 def _add_type_stubs(
-    zf: zipfile.ZipFile,
+    wf: WheelFile,
     so_file: Path,
     name_normalized: str,
     lib_name: str,
-    record_lines: List[str],
 ) -> None:
     """Add type stub files to the wheel if they exist.
 
     Args:
-        zf: ZipFile object to write to
+        wf: WheelFile object to write to
         so_file: Path to compiled .so/.pyd file
         name_normalized: Normalized package name
         lib_name: Library name
-        record_lines: List to append RECORD entries to
     """
     pyi_file = so_file.with_suffix(".pyi")
     if pyi_file.exists():
         arcname = f"{name_normalized}/{lib_name}.pyi"
-        data = pyi_file.read_bytes()
-        _write_wheel_file(zf, arcname, data, record_lines)
+        wf.write(str(pyi_file), arcname=arcname)
         logger.info(f"Including type stubs: {lib_name}.pyi")
 
 
 def _add_wheel_metadata(
-    zf: zipfile.ZipFile,
+    wf: WheelFile,
     name: str,
     version: str,
     wheel_tag: str,
     name_normalized: str,
-    record_lines: List[str],
 ) -> None:
     """Add WHEEL and METADATA files to the wheel.
 
     Args:
-        zf: ZipFile object to write to
+        wf: WheelFile object to write to
         name: Package name
         version: Package version
         wheel_tag: Wheel tag (e.g., "cp313-cp313-linux_x86_64")
         name_normalized: Normalized package name
-        record_lines: List to append RECORD entries to
     """
     dist_info = f"{name_normalized}-{version}.dist-info"
 
     wheel_content = (
-        f"Wheel-Version: 1.0\nGenerator: nuwa\nRoot-Is-Purelib: false\nTag: {wheel_tag}\n".encode()
+        f"Wheel-Version: 1.0\nGenerator: nuwa\nRoot-Is-Purelib: false\nTag: {wheel_tag}\n"
     )
-    _write_wheel_file(zf, f"{dist_info}/WHEEL", wheel_content, record_lines)
+    wf.writestr(f"{dist_info}/WHEEL", wheel_content)
 
-    metadata_content = f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n".encode()
-    _write_wheel_file(zf, f"{dist_info}/METADATA", metadata_content, record_lines)
+    metadata_content = f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n"
+    wf.writestr(f"{dist_info}/METADATA", metadata_content)
 
 
 def _cleanup_build_artifacts(so_file: Path) -> None:
@@ -468,6 +412,11 @@ def build_wheel(
     metadata_directory: Optional[str] = None,  # noqa: ARG001
 ) -> str:
     """Build a standard wheel with valid RECORD and permissions.
+
+    Uses wheel.WheelFile which automatically handles:
+    - RECORD file generation with proper hashes
+    - PEP 427 compliance
+    - File permissions and metadata
 
     Args:
         wheel_directory: Directory to write the wheel
@@ -498,25 +447,19 @@ def build_wheel(
     wheel_tag = wheel_name[:-4].split("-", 2)[2]
     wheel_path = Path(wheel_directory) / wheel_name
 
-    record_lines: List[str] = []
-
-    with zipfile.ZipFile(wheel_path, "w") as zf:
+    # Use WheelFile for automatic RECORD generation
+    with WheelFile(wheel_path, "w") as wf:
         # 1. Add Python package files
-        _add_python_package_files(zf, name_normalized, record_lines)
+        _add_python_package_files(wf, name_normalized)
 
         # 2. Add compiled extension
-        _add_compiled_extension(zf, so_file, name_normalized, lib_name, ext, record_lines)
+        _add_compiled_extension(wf, so_file, name_normalized, lib_name, ext)
 
         # 3. Add type stubs
-        _add_type_stubs(zf, so_file, name_normalized, lib_name, record_lines)
+        _add_type_stubs(wf, so_file, name_normalized, lib_name)
 
         # 4. Add metadata
-        _add_wheel_metadata(zf, name, version, wheel_tag, name_normalized, record_lines)
-
-        # 5. Write RECORD file (must be last)
-        dist_info = f"{name_normalized}-{version}.dist-info"
-        record_lines.append(f"{dist_info}/RECORD,,")
-        zf.writestr(f"{dist_info}/RECORD", "\n".join(record_lines))
+        _add_wheel_metadata(wf, name, version, wheel_tag, name_normalized)
 
     # Cleanup
     _cleanup_build_artifacts(so_file)
@@ -582,12 +525,12 @@ def build_editable(
     wheel_name = f"{name_normalized}-{version}-py3-none-any.whl"
     wheel_path = Path(wheel_directory) / wheel_name
 
-    with zipfile.ZipFile(wheel_path, "w") as zf:
+    with WheelFile(wheel_path, "w") as wf:
         # Point python to the project root (flat layout)
-        zf.writestr(f"{name}.pth", str(Path.cwd()))
+        wf.writestr(f"{name}.pth", str(Path.cwd()))
 
         # Write metadata
-        write_wheel_metadata(zf, name, version, tag="py3-none-any")
+        write_wheel_metadata(wf, name, version, tag="py3-none-any")
 
     return wheel_name
 

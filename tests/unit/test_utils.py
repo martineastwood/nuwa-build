@@ -72,20 +72,47 @@ class TestGetPlatformExtension:
 class TestGetWheelTags:
     """Tests for wheel tag generation."""
 
-    @patch("sysconfig.get_config_var")
-    @patch("sysconfig.get_platform")
-    def test_wheel_tags_format(self, mock_platform, mock_config_var):
-        """Test wheel tag format."""
-        mock_config_var.return_value = "cpython-310-x86_64-linux-gnu"
-        mock_platform.return_value = "linux-x86_64"
+    def test_wheel_tags_format(self):
+        """Test wheel tag format using packaging.tags.
 
+        This test verifies that get_wheel_tags() produces valid wheel filenames
+        with proper Python, ABI, and platform tags. Since packaging.tags.sys_tags()
+        returns the actual tags for the current system, we verify the format
+        structure rather than specific values.
+        """
         result = get_wheel_tags("mypackage", "1.0.0")
 
-        # Should be: mypackage-1.0.0-cp-cp310-cpython-310-x86_64-linux-gnu.whl
-        assert "mypackage-1.0.0" in result
-        assert ".whl" in result
-        # The SOABI contains "cp310" in the middle
-        assert "310" in result
+        # Should be in format: {name}-{version}-{python}-{abi}-{platform}.whl
+        assert result.startswith("mypackage-1.0.0-")
+        assert result.endswith(".whl")
+
+        # Split and verify we have 5 parts total
+        parts = result[:-4].split("-")  # Remove .whl and split
+        assert len(parts) == 5, f"Expected 5 parts, got {len(parts)}: {parts}"
+
+        # Verify structure: name, version, python_tag, abi_tag, platform_tag
+        assert parts[0] == "mypackage"
+        assert parts[1] == "1.0.0"
+
+        # Python tag should start with 'cp' for CPython or 'py' for PyPy
+        python_tag = parts[2]
+        assert python_tag.startswith(("cp", "py")), f"Invalid Python tag: {python_tag}"
+
+        # ABI tag should be valid (e.g., 'cp310', 'cp314t', 'abi3', 'none')
+        abi_tag = parts[3]
+        assert abi_tag.startswith(("cp", "abi", "none")), f"Invalid ABI tag: {abi_tag}"
+
+        # Platform tag should be valid (e.g., 'macosx', 'linux', 'win')
+        platform_tag = parts[4]
+        assert platform_tag, f"Invalid platform tag: {platform_tag}"
+
+    def test_wheel_tags_normalizes_package_name(self):
+        """Test that package names are normalized (hyphens -> underscores)."""
+        result = get_wheel_tags("my-package", "1.0.0")
+
+        # Wheel filenames must use underscores
+        assert "my_package-1.0.0" in result
+        assert "my-package" not in result
 
 
 class TestCheckNimbleInstalled:
