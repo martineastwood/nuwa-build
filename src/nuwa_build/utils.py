@@ -180,7 +180,7 @@ def install_nimble_dependencies(deps: list, local_dir: Optional[Path] = None) ->
                 ["nimble", "list", "-i"], capture_output=True, text=True, check=False
             )
             installed = result.stdout.lower()
-        except Exception:
+        except (FileNotFoundError, PermissionError, subprocess.SubprocessError):
             installed = ""
 
         # Extract package names from dependency specs (remove version constraints)
@@ -234,7 +234,7 @@ def install_nimble_dependencies(deps: list, local_dir: Optional[Path] = None) ->
             raise RuntimeError(
                 "nimble command not found. Make sure Nim is properly installed and in your PATH."
             ) from None
-        except Exception as e:
+        except (OSError, subprocess.SubprocessError) as e:
             print(f"    ⚠ Error installing {dep}: {e}")
             # Don't fail hard, just warn and continue
 

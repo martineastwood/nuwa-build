@@ -240,11 +240,17 @@ def _generate_type_stubs(lib_name: str, compiler_output: str, output_dir: Path) 
         logger.debug("No stub metadata found in compiler output (nuwa_sdk not used?)")
 
 
-def _setup_build_environment(config: dict) -> tuple[Path, Path, Optional[Path]]:
+def _setup_build_environment(
+    config: dict,
+    entry_point_content: Optional[str] = None,
+    nim_dir_override: Optional[Path] = None,
+) -> tuple[Path, Path, Optional[Path]]:
     """Setup build environment by installing dependencies and discovering sources.
 
     Args:
         config: Configuration dictionary
+        entry_point_content: Optional string content to write to entry point (for Jupyter)
+        nim_dir_override: Optional nim directory path (to skip discovery)
 
     Returns:
         Tuple of (nim_dir, entry_point, local_nimble_path)
@@ -257,8 +263,21 @@ def _setup_build_environment(config: dict) -> tuple[Path, Path, Optional[Path]]:
     project_root = Path.cwd()
     local_nimble_path = _install_dependencies(config, project_root)
 
-    # Discover sources
-    nim_dir, entry_point = discover_nim_sources(config)
+    # Discover or use provided sources
+    if nim_dir_override is not None:
+        nim_dir = nim_dir_override
+        # Determine entry point path from config
+        lib_name = config["lib_name"]
+        entry_point = nim_dir / f"{lib_name}.nim"
+
+        # Write entry point content if provided
+        if entry_point_content is not None:
+            entry_point.parent.mkdir(parents=True, exist_ok=True)
+            entry_point.write_text(entry_point_content)
+            logger.debug(f"Wrote entry point content to: {entry_point}")
+    else:
+        nim_dir, entry_point = discover_nim_sources(config)
+
     validate_nim_project(nim_dir, entry_point)
 
     return nim_dir, entry_point, local_nimble_path
@@ -268,6 +287,9 @@ def _compile_nim(
     build_type: str = "release",
     inplace: bool = False,
     config_overrides: Optional[dict] = None,
+    entry_point_content: Optional[str] = None,
+    nim_dir_override: Optional[Path] = None,
+    skip_nimble_deps: bool = False,
 ) -> Path:
     """Compile the Nim extension.
 
@@ -275,6 +297,9 @@ def _compile_nim(
         build_type: "debug" or "release"
         inplace: If True, compile next to source; if False, compile to build dir
         config_overrides: Optional config dict (for testing or CLI overrides)
+        entry_point_content: Optional string content to write to entry point (for Jupyter)
+        nim_dir_override: Optional nim directory path (to skip discovery)
+        skip_nimble_deps: If True, skip nimble dependency installation
 
     Returns:
         Path to compiled .so/.pyd file
@@ -291,8 +316,15 @@ def _compile_nim(
     resolver = ConfigResolver(cli_overrides=config_overrides)
     config = resolver.resolve()
 
+    # Skip nimble deps if requested (for Jupyter)
+    if skip_nimble_deps:
+        config = config.copy()
+        config["nimble_deps"] = []
+
     # Setup build environment
-    nim_dir, entry_point, local_nimble_path = _setup_build_environment(config)
+    nim_dir, entry_point, local_nimble_path = _setup_build_environment(
+        config, entry_point_content, nim_dir_override
+    )
 
     # Determine output path
     out_path = _determine_output_path(config, inplace)

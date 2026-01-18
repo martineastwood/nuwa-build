@@ -5,7 +5,6 @@ import builtins
 import contextlib
 import logging
 import re
-import shutil
 import subprocess
 import sys
 import time
@@ -14,7 +13,8 @@ from typing import Optional
 
 from . import __version__
 from .backend import _compile_nim
-from .config import ConfigResolver, parse_nuwa_config
+from .cleanup import BuildArtifactCleaner
+from .config import ConfigResolver, tomllib
 from .constants import DEFAULT_DEBOUNCE_DELAY
 from .pep517_hooks import build_wheel
 from .templates import (
@@ -132,7 +132,7 @@ def validate_path(path: Path) -> None:
     # Resolve the path to check for directory traversal
     try:
         resolved = path.resolve()
-    except Exception as e:
+    except OSError as e:
         raise ValueError(f"Invalid path '{path}': {e}") from None
 
     # Check if parent directory exists
@@ -319,103 +319,30 @@ def run_clean(args: argparse.Namespace) -> None:
     Args:
         args: Parsed command-line arguments
     """
-
-    cleaned = []
-    errors = []
+    cleaner = BuildArtifactCleaner()
 
     # Determine what to clean based on flags
     clean_all = not (args.deps or args.artifacts)
 
-    # Helper to safely remove a directory
-    def safe_remove_dir(path: Path, name: str) -> None:
-        """Safely remove a directory if it exists."""
-        if path.exists() and path.is_dir():
-            try:
-                shutil.rmtree(path)
-                cleaned.append(f"{name}/")
-            except Exception as e:
-                errors.append(f"{name}/: {e}")
-
-    # Helper to safely remove a file
-    def safe_remove_file(path: Path) -> None:
-        """Safely remove a file if it exists and is not a symlink."""
-        if path.exists() and path.is_file():
-            # Skip symlinks to avoid deleting the target
-            if path.is_symlink():
-                return
-            try:
-                path.unlink()
-                # Try to get relative path, fall back to absolute if it fails
-                try:
-                    display_path = str(path.relative_to(Path.cwd()))
-                except ValueError:
-                    display_path = str(path)
-                cleaned.append(display_path)
-            except Exception as e:
-                errors.append(f"{path}: {e}")
-
-    # Clean .nimble/ directory
-    if clean_all or args.deps:
-        safe_remove_dir(Path.cwd() / ".nimble", ".nimble")
-
-    # Clean nimcache/ directory
-    if clean_all or args.artifacts:
-        safe_remove_dir(Path.cwd() / "nimcache", "nimcache")
-
-    # Clean build/ directory
-    if clean_all or args.artifacts:
-        safe_remove_dir(Path.cwd() / "build", "build")
-
-    # Clean dist/ directory
-    if clean_all or args.artifacts:
-        safe_remove_dir(Path.cwd() / "dist", "dist")
-
-    # Clean compiled artifacts - only in Nuwa-managed locations
-    if clean_all or args.artifacts:
-        try:
-            config = parse_nuwa_config()
-            lib_name = config.get("lib_name", "")
-            module_name = config.get("module_name", "")
-            ext = ".pyd" if sys.platform == "win32" else ".so"
-
-            # Only remove the specific compiled extension that Nuwa generates
-            if lib_name:
-                # Check in common output locations
-                for output_dir in [Path(module_name), Path("src") / module_name]:
-                    if output_dir.exists():
-                        ext_file = output_dir / f"{lib_name}{ext}"
-                        safe_remove_file(ext_file)
-
-        except FileNotFoundError as e:
-            # pyproject.toml not found - not a Nuwa project
-            logger.debug(f"No pyproject.toml found, skipping artifact cleaning: {e}")
-            errors.append(
-                "Could not load pyproject.toml (not a Nuwa project?). "
-                "Skipping compiled artifact cleanup."
-            )
-        except KeyError as e:
-            # Config missing required fields
-            logger.warning(f"Config missing required field for artifact cleaning: {e}")
-            errors.append(f"Config error: missing field {e}. Skipping artifact cleanup.")
-        except Exception as e:
-            # Log the full error for debugging
-            logger.error(f"Unexpected error during artifact cleaning: {e}", exc_info=True)
-            errors.append(
-                f"Unexpected error cleaning artifacts: {type(e).__name__}: {e}\n"
-                f"Compiled extensions may not have been cleaned. Try manually deleting .so/.pyd files."
-            )
+    # Perform the requested cleanup
+    if clean_all:
+        result = cleaner.clean_all()
+    elif args.deps:
+        result = cleaner.clean_dependencies()
+    else:  # args.artifacts
+        result = cleaner.clean_artifacts()
 
     # Print results
-    if cleaned:
+    if result.has_cleaned():
         print("🧹 Cleaned:")
-        for item in cleaned:
+        for item in result.cleaned:
             print(f"   ✓ {item}")
     else:
         print("✨ Nothing to clean")
 
-    if errors:
+    if result.has_errors():
         print("\n⚠️ Errors:")
-        for error in errors:
+        for error in result.errors:
             print(f"   {error}")
 
 
@@ -579,21 +506,14 @@ def _determine_project_name(path: Path, pyproject_path: Path) -> str:
     Returns:
         Project name
     """
-    import sys
-
-    if sys.version_info >= (3, 11):
-        import tomllib
-    else:
-        import tomli as tomllib
-
     project_name = "my_project"
     if pyproject_path.exists():
         try:
             with open(pyproject_path, "rb") as f:
                 pyproject = tomllib.load(f)
                 project_name = pyproject.get("project", {}).get("name", project_name)
-        except Exception:
-            # Fallback if file is currently invalid TOML
+        except (OSError, tomllib.TOMLDecodeError):
+            # Fallback if file is currently unreadable or invalid TOML
             project_name = path.resolve().name
     else:
         project_name = path.resolve().name
@@ -609,18 +529,11 @@ def _update_pyproject_toml(pyproject_path: Path, module_name: str, project_name:
         module_name: Python module name
         project_name: Project name
     """
-    import sys
-
-    if sys.version_info >= (3, 11):
-        import tomllib
-    else:
-        import tomli as tomllib
-
     if pyproject_path.exists():
         try:
             with open(pyproject_path, "rb") as f:
                 current_config = tomllib.load(f)
-        except Exception:
+        except (OSError, tomllib.TOMLDecodeError):
             print("❌ Error: Existing pyproject.toml is invalid. Cannot modify safely.")
             return
 

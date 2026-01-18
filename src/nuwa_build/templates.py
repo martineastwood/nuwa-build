@@ -61,6 +61,7 @@ dist/
 # Nim
 nimcache/
 .nimble/
+.nuwacache/
 """
 
 INIT_PY = """\"\"\"

@@ -6,6 +6,7 @@ import hashlib
 import importlib.util
 import logging
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 from typing import Optional
@@ -18,8 +19,8 @@ from IPython.core.magic import (  # type: ignore[import-not-found]
     magics_class,
 )
 
-from .backend import _build_nim_command, _generate_type_stubs, _run_compilation
-from .utils import check_nim_installed, get_platform_extension
+from .backend import _compile_nim
+from .utils import get_platform_extension
 
 logger = logging.getLogger("nuwa")
 
@@ -124,23 +125,16 @@ entry-point = "{module_name}_lib.nim"
 
     def _compile_nim_from_string(
         self,
-        _nim_code: str,
+        nim_code: str,
         module_name: str,
         cache_dir: Path,
         nim_flags: Optional[list[str]] = None,
     ) -> Path:
         """Compile Nim code from string using cache directory.
 
-        NOTE: This function duplicates some logic from backend.py:_compile_nim()
-        because it needs to support compiling from string input (for Jupyter) rather
-        than from file paths. The workflow is:
-        1. Reuses check_nim_installed(), get_platform_extension()
-        2. Reuses _build_nim_command() for compiler invocation
-        3. Reuses _run_compilation() for subprocess execution
-        4. Reuses _generate_type_stubs() for .pyi generation
-
-        TODO: Consider refactoring backend.py:_compile_nim() to support optional
-        entry_point and output_path parameters to reduce this duplication.
+        This method uses the shared _compile_nim() function from backend.py,
+        passing the necessary parameters to compile from string input instead
+        of discovering file paths.
 
         Args:
             nim_code: Nim source code as string
@@ -155,34 +149,26 @@ entry-point = "{module_name}_lib.nim"
             RuntimeError: If Nim compiler not found
             subprocess.CalledProcessError: If compilation fails
         """
-        # Check Nim is available
-        check_nim_installed()
+        # Prepare config overrides for Jupyter compilation
+        config_overrides = {
+            "module_name": module_name,
+            "lib_name": f"{module_name}_lib",
+            "output_location": str(cache_dir / module_name),
+            "nim_flags": nim_flags or [],
+        }
 
-        # Determine paths
+        # Prepare nim directory
         nim_dir = cache_dir / "nim"
-        entry_point = nim_dir / f"{module_name}_lib.nim"
-        ext = get_platform_extension()
-        output_path = cache_dir / module_name / f"{module_name}_lib{ext}"
-        output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Build command (release build by default)
-        cmd = _build_nim_command(
-            entry_point=entry_point,
-            output_path=output_path,
+        # Compile using the shared backend function
+        return _compile_nim(
             build_type="release",
-            nim_flags=nim_flags or [],
-            nim_dir=nim_dir,
-            nimble_path=None,  # No nimble deps for Jupyter
+            inplace=False,
+            config_overrides=config_overrides,
+            entry_point_content=nim_code,
+            nim_dir_override=nim_dir,
+            skip_nimble_deps=True,  # No nimble deps for Jupyter
         )
-
-        # Run compilation
-        result = _run_compilation(cmd, entry_point, output_path)
-
-        # Generate type stubs
-        lib_name = f"{module_name}_lib"
-        _generate_type_stubs(lib_name, result.stdout, output_path.parent)
-
-        return output_path
 
     def _extract_exported_functions(self, module) -> dict:
         """Extract functions exported via {.exportpy.} pragma.
@@ -280,7 +266,7 @@ entry-point = "{module_name}_lib.nim"
                         f"✅ Loaded {len(injected)} functions from cache: {', '.join(injected.keys())}"
                     )
                     return
-                except Exception as e:
+                except (ImportError, OSError) as e:
                     logger.warning(f"Failed to load cached module: {e}. Recompiling...")
                     # Fall through to recompile
 
@@ -290,29 +276,21 @@ entry-point = "{module_name}_lib.nim"
         # 5. Generate minimal pyproject.toml
         self._generate_minimal_pyproject(module_name, cache_path)
 
-        # 6. Write Nim code to cache
-        nim_dir = cache_path / "nim"
-        nim_dir.mkdir(exist_ok=True)
-        entry_point = nim_dir / f"{module_name}_lib.nim"
-
-        # Automatically add import nuwa_sdk if not present (required for {.nuwa_export.})
+        # 6. Prepare nim code (auto-add import nuwa_sdk if needed)
         nim_code = cell
         if "import nuwa_sdk" not in nim_code and "nuwa_export" in nim_code:
             nim_code = "import nuwa_sdk\n\n" + nim_code
             logger.debug("Auto-added 'import nuwa_sdk' for {.nuwa_export.} pragma")
 
-        entry_point.write_text(nim_code)
-        logger.debug(f"Wrote Nim code to: {entry_point}")
-
-        # 7. Compile using adapted _compile_nim logic
+        # 7. Compile using shared backend logic
         try:
             so_path = self._compile_nim_from_string(
-                cell,
+                nim_code,
                 module_name=module_name,
                 cache_dir=cache_path,
                 nim_flags=nim_flags,
             )
-        except Exception as e:
+        except (RuntimeError, subprocess.CalledProcessError, OSError) as e:
             self._format_jupyter_error(str(e), cache_path)
             return
 
@@ -322,7 +300,7 @@ entry-point = "{module_name}_lib.nim"
                 so_path=so_path,
                 module_name=module_name,
             )
-        except Exception as e:
+        except (ImportError, OSError) as e:
             print(f"❌ Failed to load compiled module: {e}")
             return
 

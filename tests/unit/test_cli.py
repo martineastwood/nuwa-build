@@ -145,7 +145,7 @@ class TestValidatePath:
     @patch("pathlib.Path.resolve")
     def test_invalid_path_resolution(self, mock_resolve):
         """Test handling of invalid path that cannot be resolved."""
-        mock_resolve.side_effect = Exception("Cannot resolve")
+        mock_resolve.side_effect = OSError("Cannot resolve")
 
         with pytest.raises(ValueError, match="Invalid path"):
             validate_path(Path("invalid\x00path"))

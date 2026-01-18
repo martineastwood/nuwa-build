@@ -123,12 +123,6 @@ nuwa watch --release
 
 Nuwa-Build includes a Jupyter magic command for compiling Nim code directly in notebooks.
 
-### Installation
-
-```bash
-pip install nuwa-build[jupyter]
-```
-
 ### Usage
 
 ```python
@@ -170,6 +164,7 @@ Or manually delete the `.nuwacache/` folder.
 #### .gitignore
 
 Add to your `.gitignore`:
+
 ```
 .nuwacache/
 ```
@@ -330,6 +325,7 @@ nuwa init /path/to/project
 ```
 
 This command:
+
 - Adds `[build-system]` and `[tool.nuwa]` to `pyproject.toml` (or creates it if missing)
 - Creates `nim/` directory with entry point and helper files
 - Updates `.gitignore` with build artifacts
@@ -497,6 +493,7 @@ Compile `my_package_lib.nim` and both modules are included in the final `.so`/`.
 - ❌ **Not exported**: `proc add(a: int, b: int): int` - Not accessible from Python
 
 The `{.nuwa_export.}` pragma does two things:
+
 1. Makes the function callable from Python (via the underlying nimpy library)
 2. Generates type stub information for IDE autocomplete and type checking
 
