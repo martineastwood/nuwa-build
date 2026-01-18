@@ -5,16 +5,24 @@ import builtins
 import contextlib
 import logging
 import re
+import shutil
 import subprocess
 import sys
 import time
 from pathlib import Path
 from typing import Optional
 
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
+
 from . import __version__
-from .backend import _compile_nim
+from .backend import _compile_nim, build_wheel
+from .config import parse_nuwa_config
 from .constants import DEFAULT_DEBOUNCE_DELAY
 from .templates import (
+    BUILD_SYSTEM_SECTION,
     EXAMPLE_PY,
     GITHUB_ACTIONS_PUBLISH_YML,
     GITIGNORE,
@@ -24,6 +32,7 @@ from .templates import (
     PYPROJECT_TOML,
     README_MD,
     TEST_PY,
+    TOOL_NUWA_SECTION,
 )
 
 logger = logging.getLogger("nuwa")
@@ -300,7 +309,6 @@ def run_build(args: argparse.Namespace) -> None:
     Args:
         args: Parsed command-line arguments
     """
-    from .backend import build_wheel
 
     config_overrides = build_config_overrides(args)
 
@@ -333,7 +341,6 @@ def run_clean(args: argparse.Namespace) -> None:
     Args:
         args: Parsed command-line arguments
     """
-    import shutil
 
     cleaned = []
     errors = []
@@ -388,8 +395,6 @@ def run_clean(args: argparse.Namespace) -> None:
     # Clean compiled artifacts - only in Nuwa-managed locations
     if clean_all or args.artifacts:
         try:
-            from .config import parse_nuwa_config
-
             config = parse_nuwa_config()
             lib_name = config.get("lib_name", "")
             module_name = config.get("module_name", "")
@@ -558,12 +563,126 @@ def run_watch(args: argparse.Namespace) -> None:
         observer.join()
 
 
+def run_init(args: argparse.Namespace) -> None:
+    """Initialize Nuwa in an existing project.
+
+    Args:
+        args: Parsed command-line arguments
+    """
+    path = Path(args.path or ".")
+
+    # 1. Determine Project Name
+    project_name = "my_project"
+    pyproject_path = path / "pyproject.toml"
+
+    # We read the content once
+    content = ""
+    if pyproject_path.exists():
+        content = pyproject_path.read_text(encoding="utf-8")
+        try:
+            # Parse to find name safely
+            data = tomllib.loads(content)
+            project_name = data.get("project", {}).get("name", project_name)
+        except Exception:
+            # Fallback if file is currently invalid TOML
+            project_name = path.resolve().name
+    else:
+        project_name = path.resolve().name
+
+    # Normalize names
+    module_name = project_name.replace("-", "_")
+    lib_name = f"{module_name}_lib"
+
+    print(f"✨ Initializing Nuwa for project: {project_name}")
+
+    # 2. Handle pyproject.toml injection
+    if pyproject_path.exists():
+        try:
+            current_config = tomllib.loads(content)
+        except Exception:
+            print("❌ Error: Existing pyproject.toml is invalid. Cannot modify safely.")
+            return
+
+        # CHECK 1: Build System
+        # We only append if [build-system] is COMPLETELY missing
+        if "build-system" in current_config:
+            backend = current_config["build-system"].get("build-backend", "legacy")
+            if backend != "nuwa_build":
+                print(f"⚠️  Warning: Project uses another build backend ('{backend}').")
+                print("   To use Nuwa, you must manually edit pyproject.toml:")
+                print("   [build-system]")
+                print('   requires = ["nuwa-build"]')
+                print('   build-backend = "nuwa_build"')
+            else:
+                print("✅ Build backend already configured.")
+        else:
+            print("➕ Adding [build-system] to pyproject.toml")
+            with open(pyproject_path, "a", encoding="utf-8") as f:
+                f.write(BUILD_SYSTEM_SECTION)
+
+        # CHECK 2: Tool Config
+        # We only append if [tool.nuwa] is COMPLETELY missing
+        if "tool" in current_config and "nuwa" in current_config["tool"]:
+            print("ℹ️  [tool.nuwa] configuration already exists.")
+        else:
+            print("➕ Adding [tool.nuwa] config to pyproject.toml")
+            with open(pyproject_path, "a", encoding="utf-8") as f:
+                f.write(TOOL_NUWA_SECTION.format(module_name=module_name))
+
+    else:
+        # Create fresh pyproject.toml
+        print("📄 Creating pyproject.toml")
+        with open(pyproject_path, "w", encoding="utf-8") as f:
+            f.write(f'[project]\nname = "{project_name}"\nversion = "0.1.0"\n')
+            f.write(BUILD_SYSTEM_SECTION)
+            f.write(TOOL_NUWA_SECTION.format(module_name=module_name))
+
+    # 3. Create Nim Directory (Non-destructive)
+    nim_dir = path / "nim"
+    if not nim_dir.exists():
+        print("Pg  Creating nim/ directory")
+        nim_dir.mkdir(exist_ok=True)
+
+        # Entry point
+        entry_file = nim_dir / f"{lib_name}.nim"
+        if not entry_file.exists():
+            print(f"Pg  Creating nim/{entry_file.name}")
+            with open(entry_file, "w", encoding="utf-8") as f:
+                f.write(LIB_NIM.format(module_name=module_name))
+
+        # Helpers
+        helpers_file = nim_dir / "helpers.nim"
+        if not helpers_file.exists():
+            print("Pg  Creating nim/helpers.nim")
+            with open(helpers_file, "w", encoding="utf-8") as f:
+                f.write(HELPERS_NIM.format(module_name=module_name))
+    else:
+        print("ℹ️  nim/ directory already exists. Skipping Nim scaffolding.")
+
+    # 4. Gitignore (Append if exists)
+    gitignore_path = path / ".gitignore"
+    if gitignore_path.exists():
+        git_content = gitignore_path.read_text(encoding="utf-8")
+        if "*.so" not in git_content and "*.pyd" not in git_content:
+            print("➕ Adding build artifacts to .gitignore")
+            with open(gitignore_path, "a", encoding="utf-8") as f:
+                f.write("\n# Nuwa Build Artifacts\n*.so\n*.pyd\nnimcache/\n.nimble/\ndist/\n")
+    else:
+        print("Pg  Creating .gitignore")
+        with open(gitignore_path, "w", encoding="utf-8") as f:
+            f.write(GITIGNORE)
+
+    print("\n✅ Initialization complete!")
+    print("   Run 'nuwa develop' to compile your first extension")
+
+
 def main() -> None:
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(prog="nuwa", description="Build Python extensions with Nim.")
 
     # Add --version flag
     parser.add_argument(
+        "-v",
         "--version",
         action="version",
         version=f"%(prog)s {__version__}",
@@ -575,6 +694,12 @@ def main() -> None:
     cmd_new = subparsers.add_parser("new", help="Create a new project")
     cmd_new.add_argument("path", help="Project directory path")
     cmd_new.add_argument("--name", help="Project name (defaults to directory name)")
+
+    # init command
+    cmd_init = subparsers.add_parser("init", help="Initialize Nuwa in an existing project")
+    cmd_init.add_argument(
+        "path", nargs="?", help="Project directory path (defaults to current directory)"
+    )
 
     # develop command
     cmd_dev = subparsers.add_parser("develop", help="Compile in-place")
@@ -641,6 +766,8 @@ def main() -> None:
     try:
         if args.command == "new":
             run_new(args)
+        elif args.command == "init":
+            run_init(args)
         elif args.command == "develop":
             run_develop(args)
         elif args.command == "build":

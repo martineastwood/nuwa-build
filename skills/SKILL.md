@@ -51,6 +51,21 @@ nuwa new <project_name>
 - If the user specifies a custom Python package name different from the folder, use `--name <name>`.
 - **Important**: Project names with hyphens need `--name` to specify a valid Python identifier.
 
+### Initializing an Existing Project
+
+If the user wants to add Nuwa to an existing project:
+
+```bash
+nuwa init [path]
+```
+
+- Initializes Nuwa in an existing project directory (defaults to current directory)
+- Adds `[build-system]` and `[tool.nuwa]` to existing `pyproject.toml` (or creates one if missing)
+- Creates `nim/` directory with scaffolding if it doesn't exist
+- Updates `.gitignore` with build artifacts if needed
+- Non-destructive: won't overwrite existing files
+- Use this when you have an existing Python project and want to add Nim extensions
+
 ### Building & Developing
 
 **Do not** use `python setup.py build`, use nuwa commands instead:
@@ -313,6 +328,19 @@ pytest
 
 # Start watch mode for development
 nuwa watch --run-tests
+```
+
+### Initializing an Existing Project
+
+```bash
+# Navigate to existing project
+cd existing_project
+
+# Initialize Nuwa (adds config, creates nim/ directory)
+nuwa init
+
+# Start developing
+nuwa develop
 ```
 
 ### Building for Distribution

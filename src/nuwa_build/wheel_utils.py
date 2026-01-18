@@ -31,7 +31,8 @@ def write_wheel_metadata(
         f"Wheel-Version: 1.0\nGenerator: nuwa\nRoot-Is-Purelib: false\nTag: {tag}\n",
     )
     zf.writestr(
-        f"{dist_info}/METADATA", f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n"
+        f"{dist_info}/METADATA",
+        f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n",
     )
     zf.writestr(f"{dist_info}/RECORD", "")
 

@@ -213,6 +213,26 @@ nuwa new my_project
 nuwa new my_project --name custom-name
 ```
 
+### `nuwa init [path]`
+
+Initialize Nuwa in an existing project:
+
+```bash
+# Initialize in current directory
+nuwa init
+
+# Initialize in specific directory
+nuwa init /path/to/project
+```
+
+This command:
+- Adds `[build-system]` and `[tool.nuwa]` to `pyproject.toml` (or creates it if missing)
+- Creates `nim/` directory with entry point and helper files
+- Updates `.gitignore` with build artifacts
+- Non-destructive: won't overwrite existing files
+
+Use this when you have an existing Python project and want to add Nim extensions to it.
+
 ### `nuwa develop`
 
 Compile the project in-place:

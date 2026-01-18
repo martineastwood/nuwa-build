@@ -537,7 +537,6 @@ def build_sdist(
     Returns:
         The source distribution filename
     """
-    import shutil
 
     # Extract metadata
     name, version = _extract_metadata()
@@ -568,7 +567,6 @@ def build_editable(
     Returns:
         The wheel filename
     """
-    import zipfile
 
     # Compile in-place
     _compile_nim(build_type="debug", inplace=True)

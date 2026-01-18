@@ -11,6 +11,7 @@ from nuwa_build.cli import (
     build_config_overrides,
     format_error,
     handle_cli_error,
+    run_init,
     validate_module_name,
     validate_path,
     validate_project_name,
@@ -316,3 +317,190 @@ class TestValidationIntegration:
             validate_project_name("123-bad-project")
 
         # We should never reach module validation for invalid project names
+
+
+class TestRunInit:
+    """Tests for run_init function."""
+
+    def test_init_creates_pyproject_toml(self, tmp_path):
+        """Test that init creates pyproject.toml when it doesn't exist."""
+        args = argparse.Namespace(path=str(tmp_path))
+
+        run_init(args)
+
+        pyproject_path = tmp_path / "pyproject.toml"
+        assert pyproject_path.exists()
+        content = pyproject_path.read_text()
+        assert "[build-system]" in content
+        assert "[tool.nuwa]" in content
+        assert "nuwa-build" in content
+
+    def test_init_updates_existing_pyproject_toml(self, tmp_path):
+        """Test that init updates existing pyproject.toml without duplicating sections."""
+        # Create a basic pyproject.toml without nuwa config
+        pyproject_path = tmp_path / "pyproject.toml"
+        pyproject_path.write_text('[project]\nname = "my_project"\nversion = "0.1.0"\n')
+
+        args = argparse.Namespace(path=str(tmp_path))
+        run_init(args)
+
+        content = pyproject_path.read_text()
+        # Should add build-system and tool.nuwa
+        assert "[build-system]" in content
+        assert "[tool.nuwa]" in content
+        # Should not duplicate project section
+        assert content.count("[project]") == 1
+
+    def test_init_does_not_duplicate_existing_build_system(self, tmp_path):
+        """Test that init doesn't add build-system if it already exists."""
+        # Create pyproject.toml with build-system
+        pyproject_path = tmp_path / "pyproject.toml"
+        pyproject_path.write_text(
+            '[build-system]\nrequires = ["nuwa-build"]\nbuild-backend = "nuwa_build"\n\n'
+            '[project]\nname = "my_project"\nversion = "0.1.0"\n'
+        )
+
+        args = argparse.Namespace(path=str(tmp_path))
+        run_init(args)
+
+        content = pyproject_path.read_text()
+        # Should not duplicate build-system
+        assert content.count("[build-system]") == 1
+
+    def test_init_does_not_duplicate_existing_tool_nuwa(self, tmp_path):
+        """Test that init doesn't add tool.nuwa if it already exists."""
+        # Create pyproject.toml with tool.nuwa
+        pyproject_path = tmp_path / "pyproject.toml"
+        pyproject_path.write_text(
+            '[project]\nname = "my_project"\nversion = "0.1.0"\n\n'
+            '[tool.nuwa]\nmodule-name = "my_project"\n'
+        )
+
+        args = argparse.Namespace(path=str(tmp_path))
+        run_init(args)
+
+        content = pyproject_path.read_text()
+        # Should not duplicate tool.nuwa
+        assert content.count("[tool.nuwa]") == 1
+
+    def test_init_creates_nim_directory(self, tmp_path):
+        """Test that init creates nim directory with scaffolding."""
+        args = argparse.Namespace(path=str(tmp_path))
+
+        run_init(args)
+
+        nim_dir = tmp_path / "nim"
+        assert nim_dir.exists()
+        assert nim_dir.is_dir()
+
+        # Check that helper file exists
+        helpers_file = nim_dir / "helpers.nim"
+        assert helpers_file.exists()
+
+    def test_init_does_not_overwrite_existing_nim_files(self, tmp_path):
+        """Test that init doesn't overwrite existing nim files."""
+        # Create nim directory with existing files
+        nim_dir = tmp_path / "nim"
+        nim_dir.mkdir()
+        lib_file = nim_dir / "my_project_lib.nim"
+        lib_file.write_text("# Existing content")
+
+        args = argparse.Namespace(path=str(tmp_path))
+        run_init(args)
+
+        # Original content should be preserved
+        content = lib_file.read_text()
+        assert content == "# Existing content"
+
+    def test_init_creates_gitignore(self, tmp_path):
+        """Test that init creates .gitignore."""
+        args = argparse.Namespace(path=str(tmp_path))
+
+        run_init(args)
+
+        gitignore_path = tmp_path / ".gitignore"
+        assert gitignore_path.exists()
+        content = gitignore_path.read_text()
+        assert "*.so" in content or "*.pyd" in content
+        assert "nimcache/" in content
+
+    def test_init_updates_existing_gitignore(self, tmp_path):
+        """Test that init updates existing .gitignore without duplicating."""
+        # Create .gitignore without Nuwa patterns
+        gitignore_path = tmp_path / ".gitignore"
+        gitignore_path.write_text("*.pyc\n__pycache__/\n")
+
+        args = argparse.Namespace(path=str(tmp_path))
+        run_init(args)
+
+        content = gitignore_path.read_text()
+        # Should add Nuwa patterns
+        assert "*.so" in content or "*.pyd" in content
+        # Should keep existing content
+        assert "*.pyc" in content
+
+    def test_init_does_not_duplicate_gitignore_patterns(self, tmp_path):
+        """Test that init doesn't duplicate patterns if they already exist."""
+        # Create .gitignore with Nuwa patterns already
+        gitignore_path = tmp_path / ".gitignore"
+        gitignore_path.write_text("*.so\n*.pyd\nnimcache/\n")
+
+        args = argparse.Namespace(path=str(tmp_path))
+        run_init(args)
+
+        content = gitignore_path.read_text()
+        # Patterns should exist but not be duplicated
+        assert content.count("*.so") == 1
+        assert content.count("*.pyd") == 1
+
+    def test_init_uses_project_name_from_pyproject(self, tmp_path):
+        """Test that init reads project name from existing pyproject.toml."""
+        # Create pyproject.toml with project name
+        pyproject_path = tmp_path / "pyproject.toml"
+        pyproject_path.write_text('[project]\nname = "custom_project"\nversion = "0.1.0"\n')
+
+        args = argparse.Namespace(path=str(tmp_path))
+        run_init(args)
+
+        # Check that nim files were created with correct module name
+        helpers_file = tmp_path / "nim" / "helpers.nim"
+        if helpers_file.exists():
+            content = helpers_file.read_text()
+            # Module name should be derived from project name (custom_project)
+            assert "custom_project" in content
+
+    def test_init_defaults_to_directory_name(self, tmp_path):
+        """Test that init uses directory name when no pyproject.toml exists."""
+        # Directory name will be the tmp_path's last component
+        args = argparse.Namespace(path=str(tmp_path))
+        run_init(args)
+
+        # Should still create pyproject.toml
+        pyproject_path = tmp_path / "pyproject.toml"
+        assert pyproject_path.exists()
+
+    def test_init_with_path_argument(self, tmp_path):
+        """Test that init works with explicit path argument."""
+        # Create a subdirectory
+        project_dir = tmp_path / "my_project"
+        project_dir.mkdir()
+
+        args = argparse.Namespace(path=str(project_dir))
+        run_init(args)
+
+        # Should create files in the specified directory
+        assert (project_dir / "pyproject.toml").exists()
+        assert (project_dir / "nim").exists()
+
+    def test_init_with_default_path(self, tmp_path, monkeypatch):
+        """Test that init uses current directory when no path is provided."""
+        # Change to temp directory
+        monkeypatch.chdir(tmp_path)
+
+        # Simulate running with path=None (should use ".")
+        args = argparse.Namespace(path=None)
+        run_init(args)
+
+        # Should create files in current directory
+        assert (tmp_path / "pyproject.toml").exists()
+        assert (tmp_path / "nim").exists()

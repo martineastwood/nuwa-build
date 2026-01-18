@@ -380,3 +380,25 @@ jobs:
           name: cibw-sdist
           path: dist/*.tar.gz
 """
+
+# Partial template for [tool.nuwa] section
+TOOL_NUWA_SECTION = """
+[tool.nuwa]
+# Nim source directory
+nim-source = "nim"
+# Python module name (where the extension will be compiled to)
+module-name = "{module_name}"
+# Internal library name
+lib-name = "{module_name}_lib"
+# Entry point file
+entry-point = "{module_name}_lib.nim"
+# Nimble dependencies (auto-installed before build)
+nimble-deps = ["nimpy", "nuwa_sdk"]
+"""
+
+# Partial template for build system
+BUILD_SYSTEM_SECTION = """
+[build-system]
+requires = ["nuwa-build"]
+build-backend = "nuwa_build"
+"""

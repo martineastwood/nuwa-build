@@ -1,8 +1,10 @@
 """Utility functions for Nuwa Build."""
 
+import os
 import shutil
 import subprocess
 import sys
+import sysconfig
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
@@ -48,8 +50,6 @@ def get_wheel_tags(name: str, version: str) -> str:
     Returns:
         Wheel filename with proper tags
     """
-    import sys
-    import sysconfig
 
     # Normalize package name: replace hyphens with underscores
     # Per PEP 427, wheel filenames must use underscores even if the package name uses hyphens
@@ -116,13 +116,9 @@ def working_directory(path: Path):
     """
     original = Path.cwd()
     try:
-        import os
-
         os.chdir(path)
         yield
     finally:
-        import os
-
         os.chdir(original)
 
 
@@ -194,8 +190,6 @@ def install_nimble_dependencies(deps: list, local_dir: Optional[Path] = None) ->
     install_args = ["nimble", "install", "-y"]
     if local_dir:
         # Set environment variable to override nimble directory
-        import os
-
         env = os.environ.copy()
         env["NIMBLE_DIR"] = str(local_dir)
 
