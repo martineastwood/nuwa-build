@@ -259,41 +259,14 @@ class TestWheelMetadata:
         assert wheel_name.endswith(".whl")
 
     def test_wheel_contains_pyi_stub_file(self, tmp_path):
-        """Test that .pyi stub files are included when nuwa_sdk is used."""
+        """Test that wheel building works with file-based stub generation."""
         import zipfile
 
-        # Create a minimal project with nuwa_sdk exports
+        fixture_path = Path(__file__).parent.parent / "fixtures" / "projects" / "simple"
+        import shutil
+
         project_path = tmp_path / "pyi_test"
-        project_path.mkdir()
-
-        # Create pyproject.toml
-        pyproject = project_path / "pyproject.toml"
-        pyproject.write_text(
-            '[project]\nname = "pyi_test"\nversion = "0.1.0"\n\n'
-            '[build-system]\nrequires = []\nbuild-backend = "nuwa_build.pep517_hooks"\n\n'
-            '[tool.nuwa]\nmodule-name = "pyi_test"\nlib-name = "pyi_test_lib"\n',
-            encoding="utf-8",
-        )
-
-        # Create nim directory with a file using nuwa_export
-        nim_dir = project_path / "nim"
-        nim_dir.mkdir()
-
-        lib_nim = nim_dir / "pyi_test_lib.nim"
-        lib_nim.write_text(
-            """import nimpy
-
-proc add(a: int, b: int): int {.exportpy.} =
-  ## Add two integers
-  return a + b
-""",
-            encoding="utf-8",
-        )
-
-        # Create Python package directory
-        pkg_dir = project_path / "pyi_test"
-        pkg_dir.mkdir()
-        (pkg_dir / "__init__.py").write_text("", encoding="utf-8")
+        shutil.copytree(fixture_path, project_path)
 
         os.chdir(project_path)
         wheel_dir = tmp_path / "wheels_pyi"
@@ -301,17 +274,18 @@ proc add(a: int, b: int): int {.exportpy.} =
         wheel_filename = build_wheel(str(wheel_dir))
         wheel_path = Path(wheel_dir) / wheel_filename
 
-        # Check wheel contents for .pyi file
+        # Verify wheel was built successfully with the new stub generation system
+        assert wheel_path.exists()
+
         with zipfile.ZipFile(wheel_path, "r") as whl:
             files = whl.namelist()
-
-            # Note: .pyi file is only created if nuwa_sdk exports are used
-            # Since this simple test uses plain nimpy, we just verify the wheel builds correctly
-            # In real projects with nuwa_sdk, the .pyi file would be present
-            assert wheel_path.exists()
             assert any(
                 ".so" in f or ".pyd" in f for f in files
             ), "Wheel should contain compiled extension"
+
+        # Note: .pyi stub files are only created when nuwa_sdk exports are used.
+        # The simple fixture uses plain nimpy, so no .pyi file is generated.
+        # This test verifies the build system works correctly with the new file-based approach.
 
 
 @pytest.mark.integration
