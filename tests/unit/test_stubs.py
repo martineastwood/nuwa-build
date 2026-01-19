@@ -41,8 +41,10 @@ class TestStubGeneratorFileParsing:
 
             assert count == 2
             assert len(generator.entries) == 2
-            assert generator.entries[0]["name"] == "add"
-            assert generator.entries[1]["name"] == "greet"
+
+            # Get names (order not guaranteed)
+            names = {entry["name"] for entry in generator.entries}
+            assert names == {"add", "greet"}
 
     def test_parse_stubs_from_nonexistent_directory(self):
         """Test parsing from nonexistent directory returns 0."""
