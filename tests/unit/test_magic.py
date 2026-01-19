@@ -8,6 +8,7 @@ import pytest
 from IPython.core.interactiveshell import InteractiveShell
 
 from nuwa_build.magic import NuwaMagics
+from nuwa_build.utils import get_platform_extension
 
 
 @pytest.fixture
@@ -103,7 +104,8 @@ class TestNuwaMagics:
         # Create mock cached extension
         module_name = "nuwa_test123"
         module_path = magic.CACHE_DIR / module_name
-        ext_file = module_path / f"{module_name}_lib.so"
+        ext = get_platform_extension()
+        ext_file = module_path / f"{module_name}_lib{ext}"
         ext_file.parent.mkdir(parents=True, exist_ok=True)
         ext_file.write_text("mock")
 
@@ -187,8 +189,9 @@ class TestNuwaMagics:
             mock_importlib.util.spec_from_file_location.return_value = MagicMock()
             mock_importlib.util.module_from_spec.return_value = mock_module
 
-            # Create mock .so file
-            so_path = magic.CACHE_DIR / "test.so"
+            # Create mock extension file
+            ext = get_platform_extension()
+            so_path = magic.CACHE_DIR / f"test{ext}"
             so_path.write_text("mock")
 
             # Inject
@@ -237,10 +240,11 @@ class TestNuwaMagics:
         # Create mock cached modules
         module1 = magic.CACHE_DIR / "nuwa_module1"
         module2 = magic.CACHE_DIR / "nuwa_module2"
+        ext = get_platform_extension()
 
         for m in [module1, module2]:
             m.mkdir()
-            (m / "test.so").write_text("x" * 1024)  # 1KB file
+            (m / f"test{ext}").write_text("x" * 1024)  # 1KB file
 
         # Capture output
         f = io.StringIO()
