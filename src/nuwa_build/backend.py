@@ -6,12 +6,17 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 
-from .config import ConfigResolver, load_pyproject_toml
-from .constants import NIM_APP_LIB_FLAG
-from .discovery import discover_nim_sources, validate_nim_project
+from .config import load_pyproject_toml, merge_cli_args, parse_nuwa_config
+from .discovery import discover_nim_sources, validate_nim_entry_point
 from .errors import format_compilation_error, format_compilation_success
 from .stubs import StubGenerator
 from .utils import (
+    NIM_APP_LIB_FLAG,
+    NIMBLE_PKGS2_DIR,
+    NIMBLE_PKGS_DIR,
+    OUTPUT_LOCATION_AUTO,
+    OUTPUT_LOCATION_SRC,
+    RELEASE_FLAG,
     check_nim_installed,
     get_platform_extension,
     install_nimble_dependencies,
@@ -46,34 +51,6 @@ def _extract_metadata() -> tuple[str, str]:
     version = project.get("version", "0.1.0")
 
     return name, version
-
-
-def _determine_inplace_output(module_name: str, config: dict) -> Path:
-    """Determine output path for in-place compilation.
-
-    Args:
-        module_name: Python module name
-        config: Configuration dictionary
-
-    Returns:
-        Path where compiled extension should be placed
-    """
-    output_location = config["output_location"]
-    lib_name = config["lib_name"]
-    ext = get_platform_extension()
-
-    if output_location == "auto":
-        # Use flat layout: my_package/
-        out_dir = Path(module_name)
-    elif output_location == "src":
-        # Explicit src layout (for backward compatibility)
-        out_dir = Path("src") / module_name
-    else:
-        # Explicit path
-        out_dir = Path(output_location)
-
-    out_dir.mkdir(parents=True, exist_ok=True)
-    return out_dir / f"{lib_name}{ext}"
 
 
 def _build_nim_command(
@@ -111,15 +88,15 @@ def _build_nim_command(
     if nimble_path:
         # Nimble stores packages in 'pkgs' (older) or 'pkgs2' (newer) subdirectory
         # Check pkgs2 first (preferred in newer nimble versions), then fall back to pkgs
-        pkgs_path = nimble_path / "pkgs2"
+        pkgs_path = nimble_path / NIMBLE_PKGS2_DIR
         if not pkgs_path.exists():
-            pkgs_path = nimble_path / "pkgs"
+            pkgs_path = nimble_path / NIMBLE_PKGS_DIR
         if pkgs_path.exists():
             cmd.append(f"--nimblePath:{pkgs_path}")
 
     # Add release flag
     if build_type == "release":
-        cmd.append("-d:release")
+        cmd.append(RELEASE_FLAG)
 
     # Add user flags
     if nim_flags:
@@ -129,47 +106,6 @@ def _build_nim_command(
     cmd.append(str(entry_point))
 
     return cmd
-
-
-def _install_dependencies(config: dict, project_root: Path) -> Path:
-    """Install nimble dependencies to local directory if configured.
-
-    Args:
-        config: Configuration dictionary
-        project_root: Project root directory
-
-    Returns:
-        Path to local nimble directory
-    """
-    local_nimble_path = project_root / ".nimble"
-
-    nimble_deps = config.get("nimble_deps", [])
-    if nimble_deps:
-        install_nimble_dependencies(nimble_deps, local_dir=local_nimble_path)
-
-    return local_nimble_path
-
-
-def _determine_output_path(config: dict, inplace: bool) -> Path:
-    """Determine output path for compilation.
-
-    Args:
-        config: Configuration dictionary
-        inplace: If True, compile next to source; if False, compile to build dir
-
-    Returns:
-        Path where compiled extension should be placed
-    """
-    lib_name = config["lib_name"]
-    ext = get_platform_extension()
-
-    if inplace:
-        # For develop/editable: place in Python package directory
-        module_name = config["module_name"]
-        return _determine_inplace_output(module_name, config)
-    else:
-        # For wheels: place in current working directory
-        return Path.cwd() / f"{lib_name}{ext}"
 
 
 def _run_compilation(
@@ -222,67 +158,6 @@ def _run_compilation(
         ) from None
 
 
-def _generate_type_stubs(lib_name: str, compiler_output: str, output_dir: Path) -> None:
-    """Generate Python type stubs from compiler output.
-
-    Args:
-        lib_name: Name of the compiled library
-        compiler_output: Standard output from the compiler
-        output_dir: Directory to write .pyi files to
-    """
-    generator = StubGenerator(lib_name)
-    stub_count = generator.parse_compiler_output(compiler_output)
-
-    if stub_count > 0:
-        generator.generate_pyi(output_dir)
-        logger.info(f"Generated {stub_count} type stubs for {lib_name}")
-    else:
-        logger.debug("No stub metadata found in compiler output (nuwa_sdk not used?)")
-
-
-def _setup_build_environment(
-    config: dict,
-    entry_point_content: Optional[str] = None,
-    nim_dir_override: Optional[Path] = None,
-) -> tuple[Path, Path, Optional[Path]]:
-    """Setup build environment by installing dependencies and discovering sources.
-
-    Args:
-        config: Configuration dictionary
-        entry_point_content: Optional string content to write to entry point (for Jupyter)
-        nim_dir_override: Optional nim directory path (to skip discovery)
-
-    Returns:
-        Tuple of (nim_dir, entry_point, local_nimble_path)
-
-    Raises:
-        RuntimeError: If Nim compiler is not found
-        FileNotFoundError: If sources not found
-    """
-    # Install dependencies
-    project_root = Path.cwd()
-    local_nimble_path = _install_dependencies(config, project_root)
-
-    # Discover or use provided sources
-    if nim_dir_override is not None:
-        nim_dir = nim_dir_override
-        # Determine entry point path from config
-        lib_name = config["lib_name"]
-        entry_point = nim_dir / f"{lib_name}.nim"
-
-        # Write entry point content if provided
-        if entry_point_content is not None:
-            entry_point.parent.mkdir(parents=True, exist_ok=True)
-            entry_point.write_text(entry_point_content)
-            logger.debug(f"Wrote entry point content to: {entry_point}")
-    else:
-        nim_dir, entry_point = discover_nim_sources(config)
-
-    validate_nim_project(nim_dir, entry_point)
-
-    return nim_dir, entry_point, local_nimble_path
-
-
 def _compile_nim(
     build_type: str = "release",
     inplace: bool = False,
@@ -313,21 +188,59 @@ def _compile_nim(
     check_nim_installed()
 
     # Load and resolve configuration
-    resolver = ConfigResolver(cli_overrides=config_overrides)
-    config = resolver.resolve()
+    config = parse_nuwa_config()
+    if config_overrides:
+        config = merge_cli_args(config, config_overrides)
 
     # Skip nimble deps if requested (for Jupyter)
     if skip_nimble_deps:
         config = config.copy()
         config["nimble_deps"] = []
 
-    # Setup build environment
-    nim_dir, entry_point, local_nimble_path = _setup_build_environment(
-        config, entry_point_content, nim_dir_override
-    )
+    # Install nimble dependencies if configured
+    project_root = Path.cwd()
+    local_nimble_path = project_root / ".nimble"
+    nimble_deps = config.get("nimble_deps", [])
+    if nimble_deps:
+        install_nimble_dependencies(nimble_deps, local_dir=local_nimble_path)
+
+    # Discover or use provided sources
+    if nim_dir_override is not None:
+        nim_dir = nim_dir_override
+        lib_name = config["lib_name"]
+        entry_point = nim_dir / f"{lib_name}.nim"
+
+        # Write entry point content if provided
+        if entry_point_content is not None:
+            entry_point.parent.mkdir(parents=True, exist_ok=True)
+            entry_point.write_text(entry_point_content)
+            logger.debug(f"Wrote entry point content to: {entry_point}")
+    else:
+        nim_dir, entry_point = discover_nim_sources(config)
+
+    validate_nim_entry_point(entry_point)
 
     # Determine output path
-    out_path = _determine_output_path(config, inplace)
+    lib_name = config["lib_name"]
+    ext = get_platform_extension()
+
+    if inplace:
+        # For develop/editable: place in Python package directory
+        module_name = config["module_name"]
+        output_location = config["output_location"]
+
+        if output_location == OUTPUT_LOCATION_AUTO:
+            out_dir = Path(module_name)
+        elif output_location == OUTPUT_LOCATION_SRC:
+            out_dir = Path("src") / module_name
+        else:
+            out_dir = Path(output_location)
+
+        out_dir.mkdir(parents=True, exist_ok=True)
+        out_path = out_dir / f"{lib_name}{ext}"
+    else:
+        # For wheels: place in current working directory
+        out_path = Path.cwd() / f"{lib_name}{ext}"
 
     # Build compiler command
     cmd = _build_nim_command(
@@ -347,7 +260,13 @@ def _compile_nim(
     print(format_compilation_success(out_path))
 
     # Generate type stubs
-    lib_name = config["lib_name"]
-    _generate_type_stubs(lib_name, result.stdout, out_path.parent)
+    generator = StubGenerator(lib_name)
+    stub_count = generator.parse_compiler_output(result.stdout)
+
+    if stub_count > 0:
+        generator.generate_pyi(out_path.parent)
+        logger.info(f"Generated {stub_count} type stubs for {lib_name}")
+    else:
+        logger.debug("No stub metadata found in compiler output (nuwa_sdk not used?)")
 
     return out_path

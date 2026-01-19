@@ -3,6 +3,21 @@
 from pathlib import Path
 
 
+def validate_nim_entry_point(entry_point: Path) -> None:
+    """Validate that the Nim entry point file exists.
+
+    Args:
+        entry_point: Path to entry point file
+
+    Raises:
+        FileNotFoundError: If entry point doesn't exist
+    """
+    if not entry_point.exists():
+        raise FileNotFoundError(
+            f"Entry point not found: {entry_point}\nEnsure the file exists: {entry_point}"
+        )
+
+
 def discover_nim_sources(config: dict) -> tuple[Path, Path]:
     """Discover Nim entry point and source directory.
 
@@ -88,27 +103,3 @@ def discover_entry_point_fallback(nim_dir: Path, module_name: str) -> tuple[Path
         f'  entry-point = "<filename>.nim"\n\n'
         f"Found files: {[f.name for f in nim_files]}"
     )
-
-
-def validate_nim_project(nim_dir: Path, entry_point: Path) -> list[Path]:
-    """Validate Nim project structure and return all .nim files.
-
-    Args:
-        nim_dir: Path to Nim source directory
-        entry_point: Path to entry point file
-
-    Returns:
-        List of all .nim files in the project
-
-    Raises:
-        FileNotFoundError: If entry point doesn't exist
-    """
-    if not entry_point.exists():
-        raise FileNotFoundError(
-            f"Entry point not found: {entry_point}\nEnsure the file exists: {entry_point}"
-        )
-
-    # Find all Nim files for dependency checking
-    nim_files = list(nim_dir.glob("*.nim"))
-
-    return nim_files

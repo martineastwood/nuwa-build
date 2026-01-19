@@ -2,26 +2,55 @@
 
 import argparse
 import logging
+import subprocess
 import sys
 from pathlib import Path
 
 from . import __version__
 from .backend import _compile_nim
-from .cleanup import BuildArtifactCleaner
+from .cleanup import clean_all, clean_artifacts, clean_dependencies
 from .config import build_config_overrides
 from .errors import format_error
 from .pep517_hooks import build_wheel
 from .scaffolding import (
+    create_example_file,
+    create_github_actions,
+    create_nim_scaffolding,
+    create_python_package_scaffolding,
+    create_readme,
+    create_tests_scaffolding,
     determine_project_name,
     update_gitignore,
     update_pyproject_toml,
 )
-from .templates import PYPROJECT_TOML
-from .utils import normalize_package_name
-from .validation import validate_module_name, validate_path, validate_project_name
+from .templates import LIB_NIM, PYPROJECT_TOML
+from .utils import (
+    normalize_package_name,
+    validate_module_name,
+    validate_path,
+    validate_project_name,
+)
 from .watch import run_watch
 
 logger = logging.getLogger("nuwa")
+
+
+def add_build_arguments(parser):
+    """Add common build-related arguments to a parser.
+
+    Args:
+        parser: ArgumentParser or subparser to add arguments to
+    """
+    parser.add_argument("--module-name", help="Override Python module name")
+    parser.add_argument("--nim-source", help="Override Nim source directory")
+    parser.add_argument("--entry-point", help="Override entry point file name")
+    parser.add_argument("--output-dir", help="Override output directory")
+    parser.add_argument(
+        "--nim-flag",
+        action="append",
+        dest="nim_flags",
+        help="Additional Nim compiler flags (can be used multiple times)",
+    )
 
 
 def handle_cli_error(error: Exception, context: str = "") -> None:
@@ -31,7 +60,6 @@ def handle_cli_error(error: Exception, context: str = "") -> None:
         error: The exception that occurred
         context: Optional context about what operation was being performed
     """
-    import subprocess
 
     error_msg = format_error(error)
     if error_msg:
@@ -59,7 +87,6 @@ def run_new(args: argparse.Namespace) -> None:
     Args:
         args: Parsed command-line arguments
     """
-    from .templates import LIB_NIM
 
     path = Path(args.path)
 
@@ -83,23 +110,14 @@ def run_new(args: argparse.Namespace) -> None:
     (path / "nim").mkdir(parents=True, exist_ok=True)
 
     # Write pyproject.toml
-    with open(path / "pyproject.toml", "w", encoding="utf-8") as f:
-        f.write(PYPROJECT_TOML.format(project_name=name, module_name=module_name))
+    (path / "pyproject.toml").write_text(
+        PYPROJECT_TOML.format(project_name=name, module_name=module_name)
+    )
 
     # Write Nim sources - entry point filename determines Python module name
-    with open(path / "nim" / f"{lib_name}.nim", "w", encoding="utf-8") as f:
-        f.write(LIB_NIM.format(module_name=module_name))
+    (path / "nim" / f"{lib_name}.nim").write_text(LIB_NIM.format(module_name=module_name))
 
     # Use scaffolding module for common tasks
-    from .scaffolding import (
-        create_example_file,
-        create_github_actions,
-        create_nim_scaffolding,
-        create_python_package_scaffolding,
-        create_readme,
-        create_tests_scaffolding,
-        update_gitignore,
-    )
 
     create_nim_scaffolding(path, module_name, lib_name)  # Creates helpers.nim
     create_python_package_scaffolding(path, module_name)
@@ -179,30 +197,28 @@ def run_clean(args: argparse.Namespace) -> None:
     Args:
         args: Parsed command-line arguments
     """
-    cleaner = BuildArtifactCleaner()
-
     # Determine what to clean based on flags
-    clean_all = not (args.deps or args.artifacts)
+    clean_all_flag = not (args.deps or args.artifacts)
 
     # Perform the requested cleanup
-    if clean_all:
-        result = cleaner.clean_all()
+    if clean_all_flag:
+        cleaned, errors = clean_all()
     elif args.deps:
-        result = cleaner.clean_dependencies()
+        cleaned, errors = clean_dependencies()
     else:  # args.artifacts
-        result = cleaner.clean_artifacts()
+        cleaned, errors = clean_artifacts()
 
     # Print results
-    if result.has_cleaned():
+    if cleaned:
         print("🧹 Cleaned:")
-        for item in result.cleaned:
+        for item in cleaned:
             print(f"   ✓ {item}")
     else:
         print("✨ Nothing to clean")
 
-    if result.has_errors():
+    if errors:
         print("\n⚠️ Errors:")
-        for error in result.errors:
+        for error in errors:
             print(f"   {error}")
 
 
@@ -228,7 +244,6 @@ def run_init(args: argparse.Namespace) -> None:
     update_pyproject_toml(pyproject_path, module_name, project_name)
 
     # 3. Create Nim Directory (Non-destructive)
-    from .scaffolding import create_nim_scaffolding
 
     create_nim_scaffolding(path, module_name, lib_name)
 
@@ -267,16 +282,7 @@ def main() -> None:
     # develop command
     cmd_dev = subparsers.add_parser("develop", help="Compile in-place")
     cmd_dev.add_argument("-r", "--release", action="store_true", help="Build in release mode")
-    cmd_dev.add_argument("--module-name", help="Override Python module name")
-    cmd_dev.add_argument("--nim-source", help="Override Nim source directory")
-    cmd_dev.add_argument("--entry-point", help="Override entry point file name")
-    cmd_dev.add_argument("--output-dir", help="Override output directory")
-    cmd_dev.add_argument(
-        "--nim-flag",
-        action="append",
-        dest="nim_flags",
-        help="Additional Nim compiler flags (can be used multiple times)",
-    )
+    add_build_arguments(cmd_dev)
 
     # clean command
     cmd_clean = subparsers.add_parser("clean", help="Clean build artifacts and dependencies")
@@ -288,16 +294,7 @@ def main() -> None:
     # watch command
     cmd_watch = subparsers.add_parser("watch", help="Watch for changes and recompile")
     cmd_watch.add_argument("-r", "--release", action="store_true", help="Build in release mode")
-    cmd_watch.add_argument("--module-name", help="Override Python module name")
-    cmd_watch.add_argument("--nim-source", help="Override Nim source directory")
-    cmd_watch.add_argument("--entry-point", help="Override entry point file name")
-    cmd_watch.add_argument("--output-dir", help="Override output directory")
-    cmd_watch.add_argument(
-        "--nim-flag",
-        action="append",
-        dest="nim_flags",
-        help="Additional Nim compiler flags (can be used multiple times)",
-    )
+    add_build_arguments(cmd_watch)
     cmd_watch.add_argument(
         "-t",
         "--run-tests",
@@ -308,16 +305,7 @@ def main() -> None:
     # build command
     cmd_build = subparsers.add_parser("build", help="Build a wheel package")
     cmd_build.add_argument("-r", "--release", action="store_true", help="Build in release mode")
-    cmd_build.add_argument("--module-name", help="Override Python module name")
-    cmd_build.add_argument("--nim-source", help="Override Nim source directory")
-    cmd_build.add_argument("--entry-point", help="Override entry point file name")
-    cmd_build.add_argument("--output-dir", help="Override output directory")
-    cmd_build.add_argument(
-        "--nim-flag",
-        action="append",
-        dest="nim_flags",
-        help="Additional Nim compiler flags (can be used multiple times)",
-    )
+    add_build_arguments(cmd_build)
 
     args = parser.parse_args()
 

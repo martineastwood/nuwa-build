@@ -11,15 +11,40 @@ from typing import Optional
 
 from wheel.wheelfile import WheelFile
 
+from .backend import _compile_nim, _extract_metadata
 from .config import parse_nuwa_config
 from .utils import get_platform_extension, get_wheel_tags, normalize_package_name
-from .wheel_utils import write_wheel_metadata
 
 logger = logging.getLogger("nuwa")
 
 
-# Import compilation function from backend (avoid circular dependency)
-# This will be imported at the bottom of the file to avoid circular imports
+def write_wheel_metadata(wf: WheelFile, name: str, version: str, tag: str = "py3-none-any") -> str:
+    """Write wheel metadata files to the wheel archive.
+
+    Args:
+        wf: Open WheelFile object
+        name: Package name
+        version: Package version
+        tag: Wheel tag (default: py3-none-any for pure Python/editable wheels)
+
+    Returns:
+        The dist-info directory name
+    """
+    # Normalize package name for dist-info directory
+    # Per PEP 427, dist-info directories must also use underscores
+    name_normalized = normalize_package_name(name)
+    dist_info = f"{name_normalized}-{version}.dist-info"
+
+    wf.writestr(
+        f"{dist_info}/WHEEL",
+        f"Wheel-Version: 1.0\nGenerator: nuwa\nRoot-Is-Purelib: false\nTag: {tag}\n",
+    )
+    wf.writestr(
+        f"{dist_info}/METADATA",
+        f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n",
+    )
+
+    return dist_info
 
 
 def _add_python_package_files(wf: WheelFile, name_normalized: str) -> None:
@@ -141,8 +166,6 @@ def build_wheel(
     Returns:
         The wheel filename
     """
-    # Import here to avoid circular dependency
-    from .backend import _compile_nim, _extract_metadata
 
     # Convert config_settings to config_overrides format if provided
     config_overrides = None
@@ -198,8 +221,6 @@ def build_sdist(
     Returns:
         The source distribution filename
     """
-    # Import here to avoid circular dependency
-    from .backend import _extract_metadata
 
     # Extract metadata
     name, version = _extract_metadata()
@@ -230,8 +251,6 @@ def build_editable(
     Returns:
         The wheel filename
     """
-    # Import here to avoid circular dependency
-    from .backend import _compile_nim, _extract_metadata
 
     # Compile in-place
     _compile_nim(build_type="debug", inplace=True)

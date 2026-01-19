@@ -3,6 +3,12 @@
 import sys
 from typing import Any, Optional
 
+from .utils import (
+    DEFAULT_NIM_SOURCE_DIR,
+    DEFAULT_OUTPUT_LOCATION,
+    normalize_package_name,
+)
+
 # Python 3.11+ has tomllib built-in, otherwise use tomli
 if sys.version_info >= (3, 11):
     import tomllib
@@ -14,67 +20,13 @@ else:
 
 __all__ = [
     "tomllib",
+    "load_pyproject_toml",
     "get_default_config",
     "validate_config",
-    "load_pyproject_toml",
     "parse_nuwa_config",
     "build_config_overrides",
     "merge_cli_args",
-    "ConfigResolver",
 ]
-
-
-def get_default_config(project_name: str = "nuwa_project") -> dict[str, Any]:
-    """Return default configuration.
-
-    Args:
-        project_name: Project name used to derive module name
-
-    Returns:
-        Dictionary with default configuration values
-    """
-    from .utils import normalize_package_name
-
-    module_name = normalize_package_name(project_name)
-    lib_name = f"{module_name}_lib"
-    return {
-        "nim_source": "nim",
-        "module_name": module_name,
-        "lib_name": lib_name,
-        "entry_point": f"{lib_name}.nim",
-        "output_location": "auto",
-        "nim_flags": [],
-        "bindings": "nimpy",
-        "nimble_deps": [],
-    }
-
-
-def validate_config(config: dict[str, Any]) -> None:
-    """Validate configuration has all required fields.
-
-    Args:
-        config: Configuration dictionary to validate
-
-    Raises:
-        ValueError: If required fields are missing or invalid
-    """
-    required_fields = ["nim_source", "module_name", "lib_name", "entry_point"]
-    missing = [field for field in required_fields if field not in config]
-
-    if missing:
-        raise ValueError(f"Missing required configuration fields: {missing}")
-
-    # Validate module name is a valid Python identifier
-    module_name = config["module_name"]
-    if not module_name.isidentifier():
-        raise ValueError(
-            f"Module name '{module_name}' is not a valid Python identifier. "
-            f"Use only letters, numbers, and underscores, and don't start with a number."
-        )
-
-    # Validate nim_source is not empty
-    if not config["nim_source"].strip():
-        raise ValueError("nim_source cannot be empty")
 
 
 def load_pyproject_toml() -> dict[str, Any]:
@@ -105,83 +57,122 @@ def parse_nuwa_config() -> dict[str, Any]:
 
     Raises:
         ValueError: If configuration is invalid
+        RuntimeError: If tomli is not installed (Python < 3.11)
     """
+
     pyproject = load_pyproject_toml()
 
     if not pyproject:
-        return get_default_config()
+        project_name = "nuwa_project"
+        nuwa = {}
+    else:
+        project = pyproject.get("project", {})
+        project_name = project.get("name", "nuwa_project")
+        nuwa = pyproject.get("tool", {}).get("nuwa", {})
 
-    # Extract project metadata
-    project = pyproject.get("project", {})
-    project_name = project.get("name", "nuwa_project")
+    # Build config with defaults
+    module_name = nuwa.get("module-name") or normalize_package_name(project_name)
+    lib_name = nuwa.get("lib-name") or f"{module_name}_lib"
 
-    # Extract Nuwa-specific config
-    nuwa = pyproject.get("tool", {}).get("nuwa", {})
+    config = {
+        "nim_source": nuwa.get("nim-source", DEFAULT_NIM_SOURCE_DIR),
+        "module_name": module_name,
+        "lib_name": lib_name,
+        "entry_point": nuwa.get("entry-point", f"{lib_name}.nim"),
+        "output_location": nuwa.get("output-location", DEFAULT_OUTPUT_LOCATION),
+        "nim_flags": list(nuwa.get("nim-flags", [])),
+        "bindings": nuwa.get("bindings", "nimpy"),
+        "nimble_deps": list(nuwa.get("nimble-deps", [])),
+    }
 
-    config = get_default_config(project_name)
+    # Validate
+    required_fields = ["nim_source", "module_name", "lib_name", "entry_point"]
+    missing = [field for field in required_fields if field not in config]
+    if missing:
+        raise ValueError(f"Missing required configuration fields: {missing}")
 
-    # Override with explicit config values
-    if "nim-source" in nuwa:
-        config["nim_source"] = nuwa["nim-source"]
-    if "module-name" in nuwa:
-        config["module_name"] = nuwa["module-name"]
-    if "lib-name" in nuwa:
-        config["lib_name"] = nuwa["lib-name"]
-    if "entry-point" in nuwa:
-        config["entry_point"] = nuwa["entry-point"]
-    if "output-location" in nuwa:
-        config["output_location"] = nuwa["output-location"]
-    if "nim-flags" in nuwa:
-        config["nim_flags"] = list(nuwa["nim-flags"])  # Ensure it's a list
-    if "bindings" in nuwa:
-        config["bindings"] = nuwa["bindings"]
-    if "nimble-deps" in nuwa:
-        config["nimble_deps"] = list(nuwa["nimble-deps"])  # Ensure it's a list
+    if not config["module_name"].isidentifier():
+        raise ValueError(
+            f"Module name '{config['module_name']}' is not a valid Python identifier. "
+            f"Use only letters, numbers, and underscores, and don't start with a number."
+        )
 
-    # Validate the final configuration
-    validate_config(config)
+    if not config["nim_source"].strip():
+        raise ValueError("nim_source cannot be empty")
 
     return config
 
 
-def build_config_overrides(
-    module_name: Optional[str] = None,
-    lib_name: Optional[str] = None,
-    nim_source: Optional[str] = None,
-    entry_point: Optional[str] = None,
-    output_location: Optional[str] = None,
-    nim_flags: Optional[list[str]] = None,
-) -> dict[str, Any]:
-    """Build a config overrides dictionary from individual parameters.
+def get_default_config(project_name: str = "nuwa_project") -> dict[str, Any]:
+    """Return default configuration (helper for testing).
 
-    This function provides a consistent way to build configuration overrides
+    Args:
+        project_name: Project name used to derive module name
+
+    Returns:
+        Dictionary with default configuration values
+    """
+
+    module_name = normalize_package_name(project_name)
+    lib_name = f"{module_name}_lib"
+    return {
+        "nim_source": DEFAULT_NIM_SOURCE_DIR,
+        "module_name": module_name,
+        "lib_name": lib_name,
+        "entry_point": f"{lib_name}.nim",
+        "output_location": DEFAULT_OUTPUT_LOCATION,
+        "nim_flags": [],
+        "bindings": "nimpy",
+        "nimble_deps": [],
+    }
+
+
+def validate_config(config: dict[str, Any]) -> None:
+    """Validate configuration has all required fields (helper for testing).
+
+    Args:
+        config: Configuration dictionary to validate
+
+    Raises:
+        ValueError: If required fields are missing or invalid
+    """
+    required_fields = ["nim_source", "module_name", "lib_name", "entry_point"]
+    missing = [field for field in required_fields if field not in config]
+
+    if missing:
+        raise ValueError(f"Missing required configuration fields: {missing}")
+
+    # Validate module name is a valid Python identifier
+    module_name = config["module_name"]
+    if not module_name.isidentifier():
+        raise ValueError(
+            f"Module name '{module_name}' is not a valid Python identifier. "
+            f"Use only letters, numbers, and underscores, and don't start with a number."
+        )
+
+    # Validate nim_source is not empty
+    if not config["nim_source"].strip():
+        raise ValueError("nim_source cannot be empty")
+
+
+def build_config_overrides(**kwargs: Optional[Any]) -> dict[str, Any]:
+    """Build a config overrides dictionary from keyword arguments.
+
+    Filters out None values, returning only the actual overrides.
+    This provides a consistent way to build configuration overrides
     across CLI, magic, and other contexts.
 
     Args:
-        module_name: Override for Python module name
-        lib_name: Override for library name
-        nim_source: Override for Nim source directory
-        entry_point: Override for entry point file
-        output_location: Override for output location
-        nim_flags: Override for Nim compiler flags
+        **kwargs: Configuration override values (e.g., module_name="foo", nim_source="bar")
 
     Returns:
         Dictionary containing only the non-None overrides
+
+    Example:
+        >>> build_config_overrides(module_name="foo", nim_source=None)
+        {'module_name': 'foo'}
     """
-    overrides: dict[str, Any] = {}
-    if module_name is not None:
-        overrides["module_name"] = module_name
-    if lib_name is not None:
-        overrides["lib_name"] = lib_name
-    if nim_source is not None:
-        overrides["nim_source"] = nim_source
-    if entry_point is not None:
-        overrides["entry_point"] = entry_point
-    if output_location is not None:
-        overrides["output_location"] = output_location
-    if nim_flags is not None:
-        overrides["nim_flags"] = nim_flags
-    return overrides
+    return {k: v for k, v in kwargs.items() if v is not None}
 
 
 def merge_cli_args(config: dict[str, Any], cli_args: dict[str, Any]) -> dict[str, Any]:
@@ -211,35 +202,3 @@ def merge_cli_args(config: dict[str, Any], cli_args: dict[str, Any]) -> dict[str
         result["nim_flags"] = result.get("nim_flags", []) + cli_args["nim_flags"]
 
     return result
-
-
-class ConfigResolver:
-    """Centralized configuration resolution with CLI override support.
-
-    This class encapsulates the workflow of loading configuration from pyproject.toml,
-    applying CLI overrides, and validating the result.
-    """
-
-    def __init__(self, cli_overrides: Optional[dict[str, Any]] = None):
-        """Initialize the ConfigResolver.
-
-        Args:
-            cli_overrides: Optional dictionary of CLI argument overrides
-        """
-        self.cli_overrides = cli_overrides
-
-    def resolve(self) -> dict[str, Any]:
-        """Load, merge, and validate configuration.
-
-        Returns:
-            Resolved configuration dictionary
-
-        Raises:
-            ValueError: If configuration is invalid
-        """
-        config = parse_nuwa_config()
-
-        if self.cli_overrides:
-            config = merge_cli_args(config, self.cli_overrides)
-
-        return config

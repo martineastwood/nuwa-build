@@ -9,7 +9,7 @@ name = "{project_name}"
 version = "0.1.0"
 description = "A Nim extension for Python"
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 dependencies = []
 
 [tool.nuwa]
@@ -18,7 +18,8 @@ module-name = "{module_name}"
 lib-name = "{module_name}_lib"
 entry-point = "{module_name}_lib.nim"
 # Nimble dependencies (auto-installed before build)
-nimble-deps = ["nimpy", "nuwa_sdk"]
+# Tip: Pin versions using "@" (e.g. "package@1.2.3") or ranges ("package >= 1.0")
+nimble-deps = ["nimpy@0.2.1", "nuwa_sdk@0.2.0"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

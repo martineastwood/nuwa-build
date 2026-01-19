@@ -5,9 +5,14 @@ from pathlib import Path
 from .config import tomllib
 from .templates import (
     BUILD_SYSTEM_SECTION,
+    EXAMPLE_PY,
+    GITHUB_ACTIONS_PUBLISH_YML,
     GITIGNORE,
     HELPERS_NIM,
+    INIT_PY,
     LIB_NIM,
+    README_MD,
+    TEST_PY,
     TOOL_NUWA_SECTION,
 )
 
@@ -81,10 +86,12 @@ def update_pyproject_toml(pyproject_path: Path, module_name: str, project_name: 
     else:
         # Create fresh pyproject.toml
         print("📄 Creating pyproject.toml")
-        with open(pyproject_path, "w", encoding="utf-8") as f:
-            f.write(f'[project]\nname = "{project_name}"\nversion = "0.1.0"\n')
-            f.write(BUILD_SYSTEM_SECTION)
-            f.write(TOOL_NUWA_SECTION.format(module_name=module_name))
+        config_content = (
+            f'[project]\nname = "{project_name}"\nversion = "0.1.0"\n'
+            + BUILD_SYSTEM_SECTION
+            + TOOL_NUWA_SECTION.format(module_name=module_name)
+        )
+        pyproject_path.write_text(config_content)
 
 
 def create_nim_scaffolding(path: Path, module_name: str, lib_name: str) -> None:
@@ -106,8 +113,7 @@ def create_nim_scaffolding(path: Path, module_name: str, lib_name: str) -> None:
     entry_file = nim_dir / f"{lib_name}.nim"
     if not entry_file.exists():
         print(f"📄 Creating nim/{entry_file.name}")
-        with open(entry_file, "w", encoding="utf-8") as f:
-            f.write(LIB_NIM.format(module_name=module_name))
+        entry_file.write_text(LIB_NIM.format(module_name=module_name))
     else:
         print(f"ℹ️  nim/{entry_file.name} already exists. Skipping.")
 
@@ -115,8 +121,7 @@ def create_nim_scaffolding(path: Path, module_name: str, lib_name: str) -> None:
     helpers_file = nim_dir / "helpers.nim"
     if not helpers_file.exists():
         print("📄 Creating nim/helpers.nim")
-        with open(helpers_file, "w", encoding="utf-8") as f:
-            f.write(HELPERS_NIM.format(module_name=module_name))
+        helpers_file.write_text(HELPERS_NIM.format(module_name=module_name))
     else:
         print("ℹ️  nim/helpers.nim already exists. Skipping.")
 
@@ -129,7 +134,7 @@ def update_gitignore(path: Path) -> None:
     """
     gitignore_path = path / ".gitignore"
     if gitignore_path.exists():
-        git_content = gitignore_path.read_text(encoding="utf-8")
+        git_content = gitignore_path.read_text()
         if "*.so" not in git_content and "*.pyd" not in git_content:
             print("➕ Adding build artifacts to .gitignore")
             with open(gitignore_path, "a", encoding="utf-8") as f:
@@ -138,8 +143,7 @@ def update_gitignore(path: Path) -> None:
                 )
     else:
         print("📄 Creating .gitignore")
-        with open(gitignore_path, "w", encoding="utf-8") as f:
-            f.write(GITIGNORE)
+        gitignore_path.write_text(GITIGNORE)
 
 
 def create_python_package_scaffolding(path: Path, module_name: str) -> None:
@@ -149,7 +153,6 @@ def create_python_package_scaffolding(path: Path, module_name: str) -> None:
         path: Project path
         module_name: Python module name
     """
-    from .templates import INIT_PY
 
     package_dir = path / module_name
     package_dir.mkdir(parents=True, exist_ok=True)
@@ -157,8 +160,7 @@ def create_python_package_scaffolding(path: Path, module_name: str) -> None:
     init_file = package_dir / "__init__.py"
     if not init_file.exists():
         print(f"📄 Creating {module_name}/__init__.py")
-        with open(init_file, "w", encoding="utf-8") as f:
-            f.write(INIT_PY.format(module_name=module_name))
+        init_file.write_text(INIT_PY.format(module_name=module_name))
 
 
 def create_tests_scaffolding(path: Path, module_name: str) -> None:
@@ -168,7 +170,6 @@ def create_tests_scaffolding(path: Path, module_name: str) -> None:
         path: Project path
         module_name: Python module name
     """
-    from .templates import TEST_PY
 
     tests_dir = path / "tests"
     tests_dir.mkdir(parents=True, exist_ok=True)
@@ -176,8 +177,7 @@ def create_tests_scaffolding(path: Path, module_name: str) -> None:
     test_file = tests_dir / f"test_{module_name}.py"
     if not test_file.exists():
         print(f"📄 Creating tests/test_{module_name}.py")
-        with open(test_file, "w", encoding="utf-8") as f:
-            f.write(TEST_PY.format(module_name=module_name))
+        test_file.write_text(TEST_PY.format(module_name=module_name))
 
 
 def create_example_file(path: Path, module_name: str) -> None:
@@ -187,13 +187,11 @@ def create_example_file(path: Path, module_name: str) -> None:
         path: Project path
         module_name: Python module name
     """
-    from .templates import EXAMPLE_PY
 
     example_file = path / "example.py"
     if not example_file.exists():
         print("📄 Creating example.py")
-        with open(example_file, "w", encoding="utf-8") as f:
-            f.write(EXAMPLE_PY.format(module_name=module_name))
+        example_file.write_text(EXAMPLE_PY.format(module_name=module_name))
 
 
 def create_readme(path: Path, project_name: str, module_name: str) -> None:
@@ -204,13 +202,11 @@ def create_readme(path: Path, project_name: str, module_name: str) -> None:
         project_name: Project name
         module_name: Python module name
     """
-    from .templates import README_MD
 
     readme_file = path / "README.md"
     if not readme_file.exists():
         print("📄 Creating README.md")
-        with open(readme_file, "w", encoding="utf-8") as f:
-            f.write(README_MD.format(project_name=project_name, module_name=module_name))
+        readme_file.write_text(README_MD.format(project_name=project_name, module_name=module_name))
 
 
 def create_github_actions(path: Path) -> None:
@@ -219,7 +215,6 @@ def create_github_actions(path: Path) -> None:
     Args:
         path: Project path
     """
-    from .templates import GITHUB_ACTIONS_PUBLISH_YML
 
     workflows_dir = path / ".github" / "workflows"
     workflows_dir.mkdir(parents=True, exist_ok=True)
@@ -227,5 +222,4 @@ def create_github_actions(path: Path) -> None:
     workflow_file = workflows_dir / "publish.yml"
     if not workflow_file.exists():
         print("📄 Creating .github/workflows/publish.yml")
-        with open(workflow_file, "w", encoding="utf-8") as f:
-            f.write(GITHUB_ACTIONS_PUBLISH_YML)
+        workflow_file.write_text(GITHUB_ACTIONS_PUBLISH_YML)

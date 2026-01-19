@@ -27,14 +27,16 @@ class TestGetPlatformExtension:
 
     def test_fallback_to_hardcoded_extensions(self):
         """Test fallback when sysconfig returns None."""
-        with patch("nuwa_build.utils.sysconfig.get_config_var") as mock_sysconfig, patch(
-            "sys.platform", "win32"
+        with (
+            patch("nuwa_build.utils.sysconfig.get_config_var") as mock_sysconfig,
+            patch("sys.platform", "win32"),
         ):
             mock_sysconfig.return_value = None
             assert get_platform_extension() == ".pyd"
 
-        with patch("nuwa_build.utils.sysconfig.get_config_var") as mock_sysconfig, patch(
-            "sys.platform", "linux"
+        with (
+            patch("nuwa_build.utils.sysconfig.get_config_var") as mock_sysconfig,
+            patch("sys.platform", "linux"),
         ):
             mock_sysconfig.return_value = None
             assert get_platform_extension() == ".so"

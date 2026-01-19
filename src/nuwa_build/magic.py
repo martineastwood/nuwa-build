@@ -20,6 +20,7 @@ from IPython.core.magic import (  # type: ignore[import-not-found]
 )
 
 from .backend import _compile_nim
+from .config import build_config_overrides
 from .utils import get_platform_extension
 
 logger = logging.getLogger("nuwa")
@@ -149,7 +150,6 @@ entry-point = "{module_name}_lib.nim"
             RuntimeError: If Nim compiler not found
             subprocess.CalledProcessError: If compilation fails
         """
-        from .config import build_config_overrides
 
         # Prepare config overrides for Jupyter compilation
         config_overrides = build_config_overrides(

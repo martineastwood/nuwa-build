@@ -4,97 +4,16 @@ import logging
 import subprocess
 import time
 from pathlib import Path
-from typing import Optional
+
+from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
 
 from .backend import _compile_nim
-from .config import ConfigResolver
-from .constants import DEFAULT_DEBOUNCE_DELAY
+from .config import build_config_overrides, merge_cli_args, parse_nuwa_config
 from .errors import format_error
+from .utils import DEFAULT_DEBOUNCE_DELAY
 
 logger = logging.getLogger("nuwa")
-
-
-class NimFileHandler:
-    """Handle Nim file modification events for watch mode."""
-
-    def __init__(
-        self,
-        build_type: str,
-        config_overrides: Optional[dict],
-        run_tests: bool,
-        debounce_delay: float,
-    ):
-        """Initialize the file handler.
-
-        Args:
-            build_type: "debug" or "release"
-            config_overrides: Optional config overrides
-            run_tests: Whether to run tests after compilation
-            debounce_delay: Delay in seconds between compilations
-        """
-        from watchdog.events import FileSystemEventHandler
-
-        self.build_type = build_type
-        self.config_overrides = config_overrides
-        self.run_tests = run_tests
-        self.debounce_delay = debounce_delay
-        self.last_compile: float = 0.0
-
-        # Create a proxy handler to avoid mypy "Cannot assign to a method" error
-        class _ProxyHandler(FileSystemEventHandler):
-            def on_modified(_, event):
-                self.on_modified(event)
-
-        self.handler = _ProxyHandler()
-
-    def on_modified(self, event) -> None:
-        """Handle file modification events.
-
-        Args:
-            event: Watchdog file system event
-        """
-        # Only process .nim files
-        if not event.src_path.endswith(".nim"):
-            return
-
-        # Debounce: wait for file changes to settle
-        now = time.time()
-        if now - self.last_compile < self.debounce_delay:
-            return
-
-        self.last_compile = now
-
-        # Get relative path for cleaner output
-        rel_path = Path(event.src_path).relative_to(Path.cwd())
-        print(f"\n📝 {rel_path} modified")
-
-        try:
-            out = _compile_nim(
-                build_type=self.build_type,
-                inplace=True,
-                config_overrides=self.config_overrides,
-            )
-            print(f"✅ Built {out.name}")
-
-            if self.run_tests:
-                print("🧪 Running tests...")
-                result = subprocess.run(["pytest", "-v"], capture_output=False)
-                if result.returncode == 0:
-                    print("✅ Tests passed!")
-                else:
-                    print("❌ Tests failed")
-
-        except Exception as e:
-            # Format error consistently but continue watching
-            error_msg = format_error(e)
-            if error_msg:
-                print(error_msg)
-            else:
-                # CalledProcessError already formatted by backend
-                pass
-            logger.debug(f"Compilation error in watch mode: {e}")
-
-        print("👀 Watching for changes... (Ctrl+C to stop)")
 
 
 def run_watch(args) -> None:
@@ -103,11 +22,8 @@ def run_watch(args) -> None:
     Args:
         args: Parsed command-line arguments
     """
-    from watchdog.observers import Observer
 
     # Build config overrides from args
-    from .config import build_config_overrides
-
     config_overrides = build_config_overrides(
         module_name=args.module_name,
         nim_source=args.nim_source,
@@ -117,8 +33,9 @@ def run_watch(args) -> None:
     )
 
     # Load and resolve configuration
-    resolver = ConfigResolver(cli_overrides=config_overrides)
-    config = resolver.resolve()
+    config = parse_nuwa_config()
+    if config_overrides:
+        config = merge_cli_args(config, config_overrides)
 
     watch_dir = Path(config["nim_source"])
 
@@ -128,15 +45,60 @@ def run_watch(args) -> None:
     build_type = "release" if args.release else "debug"
     debounce_delay = DEFAULT_DEBOUNCE_DELAY
 
-    # Set up observer with NimFileHandler
-    event_handler = NimFileHandler(
-        build_type=build_type,
-        config_overrides=config_overrides,
-        run_tests=args.run_tests,
-        debounce_delay=debounce_delay,
-    )
+    # Create handler with closure for state
+    last_compile = [0.0]  # Use list for mutability in closure
+
+    def on_modified(event) -> None:
+        """Handle file modification events."""
+        # Only process .nim files
+        if not event.src_path.endswith(".nim"):
+            return
+
+        # Debounce: wait for file changes to settle
+        now = time.time()
+        if now - last_compile[0] < debounce_delay:
+            return
+
+        last_compile[0] = now
+
+        # Get relative path for cleaner output
+        rel_path = Path(event.src_path).relative_to(Path.cwd())
+        print(f"\n📝 {rel_path} modified")
+
+        try:
+            out = _compile_nim(
+                build_type=build_type,
+                inplace=True,
+                config_overrides=config_overrides,
+            )
+            print(f"✅ Built {out.name}")
+
+            if args.run_tests:
+                print("🧪 Running tests...")
+                result = subprocess.run(["pytest", "-v"], capture_output=False)
+                if result.returncode == 0:
+                    print("✅ Tests passed!")
+                else:
+                    print("❌ Tests failed")
+
+        except Exception as e:
+            # Print error and continue watching (watch mode is resilient)
+            # CalledProcessError is already formatted by backend
+            if not isinstance(e, subprocess.CalledProcessError):
+                error_msg = format_error(e)
+                if error_msg:
+                    print(error_msg)
+
+        print("👀 Watching for changes... (Ctrl+C to stop)")
+
+    # Create watchdog handler
+    class _EventHandler(FileSystemEventHandler):
+        def on_modified(self_, event):
+            on_modified(event)
+
+    event_handler = _EventHandler()
     observer = Observer()
-    observer.schedule(event_handler.handler, str(watch_dir), recursive=True)
+    observer.schedule(event_handler, str(watch_dir), recursive=True)
 
     # Initial compilation
     print(f"🚀 Starting watch mode for {watch_dir}/")
@@ -154,11 +116,12 @@ def run_watch(args) -> None:
             )
             print(f"✅ Initial build complete: {out.name}")
         except Exception as e:
-            # Use consistent error formatting
-            error_msg = format_error(e)
-            if error_msg:
-                print(error_msg)
-            logger.warning(f"Initial build failed in watch mode: {e}")
+            # Print error and continue watching
+            # CalledProcessError is already formatted by backend
+            if not isinstance(e, subprocess.CalledProcessError):
+                error_msg = format_error(e)
+                if error_msg:
+                    print(error_msg)
 
         print("👀 Watching for changes... (Ctrl+C to stop)")
 

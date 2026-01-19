@@ -13,12 +13,10 @@ from nuwa_build.cli import (
     run_init,
 )
 from nuwa_build.config import build_config_overrides
-from nuwa_build.constants import (
+from nuwa_build.utils import (
     DEFAULT_DEBOUNCE_DELAY,
     NIM_APP_LIB_FLAG,
-)
-from nuwa_build.utils import normalize_package_name
-from nuwa_build.validation import (
+    normalize_package_name,
     validate_module_name,
     validate_path,
     validate_project_name,

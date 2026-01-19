@@ -1,11 +1,10 @@
 """Unit tests for source file discovery."""
 
-
 import pytest
 
 from nuwa_build.discovery import (
     discover_entry_point_fallback,
-    validate_nim_project,
+    validate_nim_entry_point,
 )
 
 
@@ -64,8 +63,8 @@ class TestEntryPointFallback:
             discover_entry_point_fallback(nim_dir, "test_module")
 
 
-class TestValidateNimProject:
-    """Tests for Nim project validation."""
+class TestValidateNimEntryPoint:
+    """Tests for Nim entry point validation."""
 
     @pytest.fixture
     def nim_dir(self, tmp_path):
@@ -74,23 +73,21 @@ class TestValidateNimProject:
         nim_dir.mkdir()
         return nim_dir
 
-    def test_valid_project(self, nim_dir):
-        """Test validation of a valid project."""
+    def test_valid_entry_point(self, nim_dir):
+        """Test validation of a valid entry point."""
         # Create entry point
         entry = nim_dir / "test_lib.nim"
         entry.write_text("import nimpy")
 
-        result = validate_nim_project(nim_dir, entry)
-
-        assert isinstance(result, list)
-        assert entry in result
+        # Should not raise
+        validate_nim_entry_point(entry)
 
     def test_missing_entry_point(self, nim_dir):
         """Test that missing entry point raises error."""
         entry = nim_dir / "nonexistent.nim"
 
         with pytest.raises(FileNotFoundError, match="Entry point not found"):
-            validate_nim_project(nim_dir, entry)
+            validate_nim_entry_point(entry)
 
 
 class TestDiscoverNimSources:
