@@ -44,6 +44,64 @@ class StubGenerator:
 
         return count
 
+    def parse_stubs_from_directory(self, stub_dir: Path) -> int:
+        """Extract JSON metadata from files in a directory.
+
+        Args:
+            stub_dir: Directory containing JSON stub files
+
+        Returns:
+            Number of stub entries found
+        """
+        if not stub_dir.exists():
+            logger.warning(f"Stub directory does not exist: {stub_dir}")
+            return 0
+
+        # Find all JSON files in the directory
+        json_files = list(stub_dir.glob("*.json"))
+
+        if not json_files:
+            logger.debug(f"No JSON files found in stub directory: {stub_dir}")
+            return 0
+
+        count = 0
+        for json_file in json_files:
+            try:
+                data = json.loads(json_file.read_text(encoding="utf-8"))
+                self.entries.append(data)
+                count += 1
+                logger.debug(f"Parsed stub metadata from: {json_file.name}")
+            except json.JSONDecodeError as e:
+                logger.warning(f"Failed to parse stub file {json_file.name}: {e}")
+            except OSError as e:
+                logger.warning(f"Failed to read stub file {json_file.name}: {e}")
+
+        return count
+
+    def parse_stubs_from_directory_with_fallback(self, stub_dir: Path, compiler_output: str) -> int:
+        """Parse stubs from directory, falling back to stdout parsing.
+
+        This is the recommended method that tries file-based parsing first,
+        then falls back to stdout parsing if no files are found.
+
+        Args:
+            stub_dir: Directory containing JSON stub files (may not exist)
+            compiler_output: Stdout from Nim compiler as fallback
+
+        Returns:
+            Number of stub entries found
+        """
+        # Try file-based approach first
+        file_count = self.parse_stubs_from_directory(stub_dir)
+
+        if file_count > 0:
+            logger.info(f"Using file-based stub generation: found {file_count} stubs")
+            return file_count
+
+        # Fall back to stdout parsing
+        logger.info("No stub files found, falling back to stdout parsing")
+        return self.parse_compiler_output(compiler_output)
+
     def generate_pyi(self, output_dir: Path) -> Path:
         """Write the .pyi file to disk.
 

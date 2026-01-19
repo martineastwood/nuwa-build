@@ -91,7 +91,7 @@ def update_pyproject_toml(pyproject_path: Path, module_name: str, project_name: 
             + BUILD_SYSTEM_SECTION
             + TOOL_NUWA_SECTION.format(module_name=module_name)
         )
-        pyproject_path.write_text(config_content)
+        pyproject_path.write_text(config_content, encoding="utf-8")
 
 
 def create_nim_scaffolding(path: Path, module_name: str, lib_name: str) -> None:
@@ -113,7 +113,7 @@ def create_nim_scaffolding(path: Path, module_name: str, lib_name: str) -> None:
     entry_file = nim_dir / f"{lib_name}.nim"
     if not entry_file.exists():
         print(f"📄 Creating nim/{entry_file.name}")
-        entry_file.write_text(LIB_NIM.format(module_name=module_name))
+        entry_file.write_text(LIB_NIM.format(module_name=module_name), encoding="utf-8")
     else:
         print(f"ℹ️  nim/{entry_file.name} already exists. Skipping.")
 
@@ -121,7 +121,7 @@ def create_nim_scaffolding(path: Path, module_name: str, lib_name: str) -> None:
     helpers_file = nim_dir / "helpers.nim"
     if not helpers_file.exists():
         print("📄 Creating nim/helpers.nim")
-        helpers_file.write_text(HELPERS_NIM.format(module_name=module_name))
+        helpers_file.write_text(HELPERS_NIM.format(module_name=module_name), encoding="utf-8")
     else:
         print("ℹ️  nim/helpers.nim already exists. Skipping.")
 
@@ -143,7 +143,7 @@ def update_gitignore(path: Path) -> None:
                 )
     else:
         print("📄 Creating .gitignore")
-        gitignore_path.write_text(GITIGNORE)
+        gitignore_path.write_text(GITIGNORE, encoding="utf-8")
 
 
 def create_python_package_scaffolding(path: Path, module_name: str) -> None:
@@ -160,7 +160,7 @@ def create_python_package_scaffolding(path: Path, module_name: str) -> None:
     init_file = package_dir / "__init__.py"
     if not init_file.exists():
         print(f"📄 Creating {module_name}/__init__.py")
-        init_file.write_text(INIT_PY.format(module_name=module_name))
+        init_file.write_text(INIT_PY.format(module_name=module_name), encoding="utf-8")
 
 
 def create_tests_scaffolding(path: Path, module_name: str) -> None:
@@ -177,7 +177,7 @@ def create_tests_scaffolding(path: Path, module_name: str) -> None:
     test_file = tests_dir / f"test_{module_name}.py"
     if not test_file.exists():
         print(f"📄 Creating tests/test_{module_name}.py")
-        test_file.write_text(TEST_PY.format(module_name=module_name))
+        test_file.write_text(TEST_PY.format(module_name=module_name), encoding="utf-8")
 
 
 def create_example_file(path: Path, module_name: str) -> None:
@@ -191,7 +191,7 @@ def create_example_file(path: Path, module_name: str) -> None:
     example_file = path / "example.py"
     if not example_file.exists():
         print("📄 Creating example.py")
-        example_file.write_text(EXAMPLE_PY.format(module_name=module_name))
+        example_file.write_text(EXAMPLE_PY.format(module_name=module_name), encoding="utf-8")
 
 
 def create_readme(path: Path, project_name: str, module_name: str) -> None:
@@ -206,7 +206,9 @@ def create_readme(path: Path, project_name: str, module_name: str) -> None:
     readme_file = path / "README.md"
     if not readme_file.exists():
         print("📄 Creating README.md")
-        readme_file.write_text(README_MD.format(project_name=project_name, module_name=module_name))
+        readme_file.write_text(
+            README_MD.format(project_name=project_name, module_name=module_name), encoding="utf-8"
+        )
 
 
 def create_github_actions(path: Path) -> None:
@@ -222,4 +224,4 @@ def create_github_actions(path: Path) -> None:
     workflow_file = workflows_dir / "publish.yml"
     if not workflow_file.exists():
         print("📄 Creating .github/workflows/publish.yml")
-        workflow_file.write_text(GITHUB_ACTIONS_PUBLISH_YML)
+        workflow_file.write_text(GITHUB_ACTIONS_PUBLISH_YML, encoding="utf-8")

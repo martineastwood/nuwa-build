@@ -20,6 +20,7 @@ from .utils import (
     check_nim_installed,
     get_platform_extension,
     install_nimble_dependencies,
+    temp_directory,
 )
 
 logger = logging.getLogger("nuwa")
@@ -60,6 +61,7 @@ def _build_nim_command(
     nim_flags: list,
     nim_dir: Path,
     nimble_path: Optional[Path] = None,
+    stub_dir: Optional[Path] = None,
 ) -> list[str]:
     """Build the Nim compiler command.
 
@@ -70,6 +72,7 @@ def _build_nim_command(
         nim_flags: Additional compiler flags from config
         nim_dir: Nim source directory (for module path)
         nimble_path: Optional path to local nimble packages directory
+        stub_dir: Optional path to directory for stub file generation
 
     Returns:
         List of command arguments
@@ -97,6 +100,10 @@ def _build_nim_command(
     # Add release flag
     if build_type == "release":
         cmd.append(RELEASE_FLAG)
+
+    # Add stub directory flag if provided
+    if stub_dir is not None:
+        cmd.append(f"-d:nuwaStubDir={stub_dir}")
 
     # Add user flags
     if nim_flags:
@@ -242,31 +249,39 @@ def _compile_nim(
         # For wheels: place in current working directory
         out_path = Path.cwd() / f"{lib_name}{ext}"
 
-    # Build compiler command
-    cmd = _build_nim_command(
-        entry_point=entry_point,
-        output_path=out_path,
-        build_type=build_type,
-        nim_flags=config["nim_flags"],
-        nim_dir=nim_dir,
-        nimble_path=local_nimble_path,
-    )
+    # Create temporary directory for stub files and run compilation
+    with temp_directory() as stub_dir:
+        # Build compiler command
+        cmd = _build_nim_command(
+            entry_point=entry_point,
+            output_path=out_path,
+            build_type=build_type,
+            nim_flags=config["nim_flags"],
+            nim_dir=nim_dir,
+            nimble_path=local_nimble_path,
+            stub_dir=stub_dir,
+        )
 
-    # Run compilation
-    result = _run_compilation(cmd, entry_point, out_path)
+        # Run compilation
+        result = _run_compilation(cmd, entry_point, out_path)
 
-    # Success
-    logger.debug(f"Successfully compiled {out_path}")
-    print(format_compilation_success(out_path))
+        # Success
+        logger.debug(f"Successfully compiled {out_path}")
+        print(format_compilation_success(out_path))
 
-    # Generate type stubs
-    generator = StubGenerator(lib_name)
-    stub_count = generator.parse_compiler_output(result.stdout)
+        # Generate type stubs
+        generator = StubGenerator(lib_name)
+        stub_count = generator.parse_stubs_from_directory_with_fallback(
+            stub_dir=stub_dir,
+            compiler_output=result.stdout,
+        )
 
-    if stub_count > 0:
-        generator.generate_pyi(out_path.parent)
-        logger.info(f"Generated {stub_count} type stubs for {lib_name}")
-    else:
-        logger.debug("No stub metadata found in compiler output (nuwa_sdk not used?)")
+        if stub_count > 0:
+            generator.generate_pyi(out_path.parent)
+            logger.info(f"Generated {stub_count} type stubs for {lib_name}")
+        else:
+            logger.debug("No stub metadata found in compiler output (nuwa_sdk not used?)")
+
+    # Temp directory is automatically cleaned up here
 
     return out_path
