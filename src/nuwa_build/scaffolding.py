@@ -99,22 +99,26 @@ def create_nim_scaffolding(path: Path, module_name: str, lib_name: str) -> None:
     if not nim_dir.exists():
         print("📄 Creating nim/ directory")
         nim_dir.mkdir(exist_ok=True)
-
-        # Entry point
-        entry_file = nim_dir / f"{lib_name}.nim"
-        if not entry_file.exists():
-            print(f"📄 Creating nim/{entry_file.name}")
-            with open(entry_file, "w", encoding="utf-8") as f:
-                f.write(LIB_NIM.format(module_name=module_name))
-
-        # Helpers
-        helpers_file = nim_dir / "helpers.nim"
-        if not helpers_file.exists():
-            print("📄 Creating nim/helpers.nim")
-            with open(helpers_file, "w", encoding="utf-8") as f:
-                f.write(HELPERS_NIM.format(module_name=module_name))
     else:
-        print("ℹ️  nim/ directory already exists. Skipping Nim scaffolding.")
+        print("ℹ️  nim/ directory already exists.")
+
+    # Entry point - create if missing
+    entry_file = nim_dir / f"{lib_name}.nim"
+    if not entry_file.exists():
+        print(f"📄 Creating nim/{entry_file.name}")
+        with open(entry_file, "w", encoding="utf-8") as f:
+            f.write(LIB_NIM.format(module_name=module_name))
+    else:
+        print(f"ℹ️  nim/{entry_file.name} already exists. Skipping.")
+
+    # Helpers - create if missing
+    helpers_file = nim_dir / "helpers.nim"
+    if not helpers_file.exists():
+        print("📄 Creating nim/helpers.nim")
+        with open(helpers_file, "w", encoding="utf-8") as f:
+            f.write(HELPERS_NIM.format(module_name=module_name))
+    else:
+        print("ℹ️  nim/helpers.nim already exists. Skipping.")
 
 
 def update_gitignore(path: Path) -> None:
