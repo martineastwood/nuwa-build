@@ -118,6 +118,15 @@ class BuildArtifactCleaner:
         nimcache_path = self.project_root / "nimcache"
         return self._safe_remove_dir(nimcache_path, "nimcache")
 
+    def clean_nuwacache(self) -> CleanupResult:
+        """Clean the .nuwacache/ directory.
+
+        Returns:
+            CleanupResult with outcome
+        """
+        nuwacache_path = self.project_root / ".nuwacache"
+        return self._safe_remove_dir(nuwacache_path, ".nuwacache")
+
     def clean_build_directory(self) -> CleanupResult:
         """Clean the build/ directory.
 
@@ -188,13 +197,14 @@ class BuildArtifactCleaner:
         return self.clean_nimble_dependencies()
 
     def clean_artifacts(self) -> CleanupResult:
-        """Clean all build artifacts (nimcache/, build/, dist/, compiled extensions).
+        """Clean all build artifacts (nimcache/, .nuwacache/, build/, dist/, compiled extensions).
 
         Returns:
             CleanupResult with outcome
         """
         result = CleanupResult()
         result.merge(self.clean_nimcache())
+        result.merge(self.clean_nuwacache())
         result.merge(self.clean_build_directory())
         result.merge(self.clean_dist_directory())
         result.merge(self.clean_compiled_extensions())

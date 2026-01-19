@@ -202,14 +202,14 @@ class TestNuwaMagics:
             assert "_private" not in injected
             assert mock_shell.user_ns["test_func"] == test_func
 
-    def test_nuwa_cleanup(self, magic):
+    def test_nuwa_clean(self, magic):
         """Test cache cleanup magic."""
         # Create some files in cache
         test_file = magic.CACHE_DIR / "test.txt"
         test_file.write_text("test")
 
         # Run cleanup
-        magic.nuwa_cleanup("")
+        magic.nuwa_clean("")
 
         # Cache should be cleared but directory recreated
         assert magic.CACHE_DIR.exists()

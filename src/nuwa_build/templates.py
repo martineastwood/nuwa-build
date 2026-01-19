@@ -340,7 +340,7 @@ jobs:
 
     env:
       PYTHONUTF8: 1
-      CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-* cp313-*"
+      CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-* cp313-* cp314-*"
       CIBW_SKIP: "pp* *-musllinux_* *i686 *-win32"
 
     steps:

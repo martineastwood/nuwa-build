@@ -149,13 +149,16 @@ entry-point = "{module_name}_lib.nim"
             RuntimeError: If Nim compiler not found
             subprocess.CalledProcessError: If compilation fails
         """
+        from .config import build_config_overrides
+
         # Prepare config overrides for Jupyter compilation
-        config_overrides = {
-            "module_name": module_name,
-            "lib_name": f"{module_name}_lib",
-            "output_location": str(cache_dir / module_name),
-            "nim_flags": nim_flags or [],
-        }
+        config_overrides = build_config_overrides(
+            module_name=module_name,
+            lib_name=f"{module_name}_lib",
+            nim_source=str(cache_dir / "nim"),
+            output_location=str(cache_dir / module_name),
+            nim_flags=nim_flags or [],
+        )
 
         # Prepare nim directory
         nim_dir = cache_dir / "nim"
@@ -232,7 +235,7 @@ entry-point = "{module_name}_lib.nim"
         """
         print(f"❌ Compilation failed:\n{error}")
         print(f"\n💡 Debug files in: {cache_dir.absolute()}")
-        print("🧹 Clear cache with: %nuwa_cleanup")
+        print("🧹 Clear cache with: %nuwa_clean")
 
     @cell_magic
     def nuwa(self, line, cell):
@@ -310,11 +313,11 @@ entry-point = "{module_name}_lib.nim"
         )
 
     @line_magic
-    def nuwa_cleanup(self, _line):
+    def nuwa_clean(self, _line):
         """Clear the .nuwacache directory.
 
         Usage:
-            %nuwa_cleanup
+            %nuwa_clean
         """
         if self.CACHE_DIR.exists():
             shutil.rmtree(self.CACHE_DIR)

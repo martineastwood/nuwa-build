@@ -1,8 +1,35 @@
 """Error parsing and formatting for Nim compiler output."""
 
 import re
+import subprocess
 from pathlib import Path
 from typing import Optional
+
+
+def format_error(error: Exception) -> str:
+    """Format an exception with consistent error message style.
+
+    Args:
+        error: The exception to format
+
+    Returns:
+        Formatted error message string
+    """
+    error_type = type(error).__name__
+
+    if isinstance(error, FileNotFoundError):
+        return f"❌ Error: {error}"
+    elif isinstance(error, ValueError):
+        return f"❌ Configuration Error: {error}"
+    elif isinstance(error, subprocess.CalledProcessError):
+        # Error already formatted and printed by backend.py
+        return ""
+    elif isinstance(error, RuntimeError):
+        return f"❌ Error: {error}"
+    elif isinstance(error, OSError):
+        return f"❌ System Error: {error}"
+    else:
+        return f"❌ Unexpected Error ({error_type}): {error}"
 
 
 def parse_nim_error(stderr: str) -> Optional[dict]:

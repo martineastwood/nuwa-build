@@ -155,7 +155,7 @@ Nuwa automatically caches compiled modules in `.nuwacache/`:
 #         📍 Location: /path/to/.nuwacache
 
 # Clear cache (e.g., to force rebuild or free space)
-%nuwa_cleanup
+%nuwa_clean
 # Output: 🧹 Cleared cache: .nuwacache
 ```
 

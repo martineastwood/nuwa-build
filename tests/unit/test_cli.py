@@ -8,19 +8,21 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from nuwa_build.cli import (
-    build_config_overrides,
     format_error,
     handle_cli_error,
     run_init,
-    validate_module_name,
-    validate_path,
-    validate_project_name,
 )
+from nuwa_build.config import build_config_overrides
 from nuwa_build.constants import (
     DEFAULT_DEBOUNCE_DELAY,
     NIM_APP_LIB_FLAG,
 )
 from nuwa_build.utils import normalize_package_name
+from nuwa_build.validation import (
+    validate_module_name,
+    validate_path,
+    validate_project_name,
+)
 
 
 class TestValidateProjectName:
@@ -163,15 +165,13 @@ class TestBuildConfigOverrides:
 
     def test_all_overrides(self):
         """Test building config overrides with all options."""
-        args = argparse.Namespace(
+        result = build_config_overrides(
             module_name="custom_module",
             nim_source="custom_nim",
             entry_point="custom_entry",
-            output_dir="custom_output",
+            output_location="custom_output",
             nim_flags=["--opt1", "--opt2"],
         )
-
-        result = build_config_overrides(args)
 
         assert result == {
             "module_name": "custom_module",
@@ -183,31 +183,17 @@ class TestBuildConfigOverrides:
 
     def test_partial_overrides(self):
         """Test building config overrides with some options."""
-        args = argparse.Namespace(
+        result = build_config_overrides(
             module_name="custom_module",
-            nim_source=None,
-            entry_point=None,
-            output_dir=None,
-            nim_flags=None,
         )
-
-        result = build_config_overrides(args)
 
         assert result == {"module_name": "custom_module"}
 
     def test_no_overrides(self):
         """Test with no overrides specified."""
-        args = argparse.Namespace(
-            module_name=None,
-            nim_source=None,
-            entry_point=None,
-            output_dir=None,
-            nim_flags=None,
-        )
+        result = build_config_overrides()
 
-        result = build_config_overrides(args)
-
-        assert result is None
+        assert result == {}
 
 
 class TestFormatError:

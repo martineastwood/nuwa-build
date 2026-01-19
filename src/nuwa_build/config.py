@@ -18,6 +18,7 @@ __all__ = [
     "validate_config",
     "load_pyproject_toml",
     "parse_nuwa_config",
+    "build_config_overrides",
     "merge_cli_args",
     "ConfigResolver",
 ]
@@ -141,6 +142,46 @@ def parse_nuwa_config() -> dict[str, Any]:
     validate_config(config)
 
     return config
+
+
+def build_config_overrides(
+    module_name: Optional[str] = None,
+    lib_name: Optional[str] = None,
+    nim_source: Optional[str] = None,
+    entry_point: Optional[str] = None,
+    output_location: Optional[str] = None,
+    nim_flags: Optional[list[str]] = None,
+) -> dict[str, Any]:
+    """Build a config overrides dictionary from individual parameters.
+
+    This function provides a consistent way to build configuration overrides
+    across CLI, magic, and other contexts.
+
+    Args:
+        module_name: Override for Python module name
+        lib_name: Override for library name
+        nim_source: Override for Nim source directory
+        entry_point: Override for entry point file
+        output_location: Override for output location
+        nim_flags: Override for Nim compiler flags
+
+    Returns:
+        Dictionary containing only the non-None overrides
+    """
+    overrides: dict[str, Any] = {}
+    if module_name is not None:
+        overrides["module_name"] = module_name
+    if lib_name is not None:
+        overrides["lib_name"] = lib_name
+    if nim_source is not None:
+        overrides["nim_source"] = nim_source
+    if entry_point is not None:
+        overrides["entry_point"] = entry_point
+    if output_location is not None:
+        overrides["output_location"] = output_location
+    if nim_flags is not None:
+        overrides["nim_flags"] = nim_flags
+    return overrides
 
 
 def merge_cli_args(config: dict[str, Any], cli_args: dict[str, Any]) -> dict[str, Any]:
