@@ -73,14 +73,14 @@ class NuwaMagics(Magics):
         return line.strip().split()
 
     def _find_cached_extension(self, cache_path: Path, module_name: str) -> Optional[Path]:
-        """Find compiled .so/.pyd in cache directory.
+        """Find compiled extension in cache directory.
 
         Args:
             cache_path: Path to cache directory
             module_name: Name of the module
 
         Returns:
-            Path to compiled extension, or None if not found
+            Path to compiled extension (platform-specific), or None if not found
         """
         ext = get_platform_extension()
         so_name = f"{module_name}_lib{ext}"
@@ -143,7 +143,7 @@ entry-point = "{module_name}_lib.nim"
             nim_flags: Additional compiler flags
 
         Returns:
-            Path to compiled .so/.pyd file
+            Path to compiled extension file (platform-specific)
 
         Raises:
             RuntimeError: If Nim compiler not found
@@ -195,7 +195,7 @@ entry-point = "{module_name}_lib.nim"
         """Load compiled extension and inject functions into IPython namespace.
 
         Args:
-            so_path: Path to compiled .so/.pyd file
+            so_path: Path to compiled extension file (platform-specific)
             module_name: Python module name
 
         Returns:

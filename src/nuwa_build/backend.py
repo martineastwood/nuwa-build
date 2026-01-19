@@ -302,7 +302,7 @@ def _compile_nim(
         skip_nimble_deps: If True, skip nimble dependency installation
 
     Returns:
-        Path to compiled .so/.pyd file
+        Path to compiled extension file (platform-specific extension)
 
     Raises:
         RuntimeError: If Nim compiler is not found

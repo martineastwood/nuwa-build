@@ -2,11 +2,11 @@
 
 import logging
 import shutil
-import sys
 from pathlib import Path
 from typing import Optional
 
 from .config import parse_nuwa_config
+from .utils import get_platform_extension
 
 logger = logging.getLogger("nuwa")
 
@@ -146,7 +146,10 @@ class BuildArtifactCleaner:
         return self._safe_remove_dir(dist_path, "dist")
 
     def clean_compiled_extensions(self) -> CleanupResult:
-        """Clean compiled .so/.pyd files from Nuwa-managed locations.
+        """Clean compiled extension files from Nuwa-managed locations.
+
+        Removes platform-specific compiled extensions (e.g., .so, .pyd, or
+        platform-specific variants like .cpython-310-x86_64-linux-gnu.so).
 
         Returns:
             CleanupResult with outcome
@@ -157,7 +160,7 @@ class BuildArtifactCleaner:
             config = parse_nuwa_config()
             lib_name = config.get("lib_name", "")
             module_name = config.get("module_name", "")
-            ext = ".pyd" if sys.platform == "win32" else ".so"
+            ext = get_platform_extension()
 
             # Only remove the specific compiled extension that Nuwa generates
             if lib_name:
@@ -183,7 +186,7 @@ class BuildArtifactCleaner:
             logger.error(f"Error during artifact cleaning: {e}", exc_info=True)
             result.errors.append(
                 f"Error cleaning artifacts: {type(e).__name__}: {e}\n"
-                f"Compiled extensions may not have been cleaned. Try manually deleting .so/.pyd files."
+                f"Compiled extensions may not have been cleaned. Try manually deleting compiled extension files."
             )
 
         return result

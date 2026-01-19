@@ -15,6 +15,47 @@ from nuwa_build.utils import (
 )
 
 
+class TestGetPlatformExtension:
+    """Tests for platform-specific extension."""
+
+    def test_uses_sysconfig_ext_suffix(self):
+        """Test that sysconfig EXT_SUFFIX is used when available."""
+        with patch("nuwa_build.utils.sysconfig.get_config_var") as mock_sysconfig:
+            mock_sysconfig.return_value = ".cpython-310-x86_64-linux-gnu.so"
+            assert get_platform_extension() == ".cpython-310-x86_64-linux-gnu.so"
+            mock_sysconfig.assert_called_once_with("EXT_SUFFIX")
+
+    def test_fallback_to_hardcoded_extensions(self):
+        """Test fallback when sysconfig returns None."""
+        with patch("nuwa_build.utils.sysconfig.get_config_var") as mock_sysconfig, patch(
+            "sys.platform", "win32"
+        ):
+            mock_sysconfig.return_value = None
+            assert get_platform_extension() == ".pyd"
+
+        with patch("nuwa_build.utils.sysconfig.get_config_var") as mock_sysconfig, patch(
+            "sys.platform", "linux"
+        ):
+            mock_sysconfig.return_value = None
+            assert get_platform_extension() == ".so"
+
+    def test_windows_extension(self):
+        """Test Windows-specific extension."""
+        with patch(
+            "nuwa_build.utils.sysconfig.get_config_var",
+            return_value=".cpython-310-win_amd64.pyd",
+        ):
+            assert get_platform_extension() == ".cpython-310-win_amd64.pyd"
+
+    def test_darwin_extension(self):
+        """Test macOS-specific extension."""
+        with patch(
+            "nuwa_build.utils.sysconfig.get_config_var",
+            return_value=".cpython-310-darwin.so",
+        ):
+            assert get_platform_extension() == ".cpython-310-darwin.so"
+
+
 class TestCheckNimInstalled:
     """Tests for Nim compiler detection."""
 
@@ -50,23 +91,6 @@ class TestCheckNimInstalled:
 
         with pytest.raises(RuntimeError, match="not working"):
             check_nim_installed()
-
-
-class TestGetPlatformExtension:
-    """Tests for platform-specific extension."""
-
-    @pytest.mark.parametrize(
-        "platform,expected",
-        [
-            ("win32", ".pyd"),
-            ("linux", ".so"),
-            ("darwin", ".so"),
-        ],
-    )
-    def test_platform_extensions(self, platform, expected):
-        """Test extension for different platforms."""
-        with patch("sys.platform", platform):
-            assert get_platform_extension() == expected
 
 
 class TestGetWheelTags:

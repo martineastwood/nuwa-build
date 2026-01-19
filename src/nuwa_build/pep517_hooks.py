@@ -47,10 +47,10 @@ def _add_compiled_extension(
 
     Args:
         wf: WheelFile object to write to
-        so_file: Path to compiled .so/.pyd file
+        so_file: Path to compiled extension file (platform-specific extension)
         name_normalized: Normalized package name
         lib_name: Library name (without extension)
-        ext: Platform-specific extension (.so/.pyd)
+        ext: Platform-specific extension (e.g., .so, .pyd, .cpython-310-x86_64-linux-gnu.so)
     """
     arcname = f"{name_normalized}/{lib_name}{ext}"
     # Write with proper permissions for shared library
@@ -67,7 +67,7 @@ def _add_type_stubs(
 
     Args:
         wf: WheelFile object to write to
-        so_file: Path to compiled .so/.pyd file
+        so_file: Path to compiled extension file (platform-specific extension)
         name_normalized: Normalized package name
         lib_name: Library name
     """

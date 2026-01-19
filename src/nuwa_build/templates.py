@@ -53,7 +53,9 @@ GITIGNORE = """# Python
 __pycache__/
 *.py[cod]
 *.so
+*.so.*
 *.pyd
+*.pyd.*
 build/
 dist/
 *.egg-info/
@@ -180,7 +182,7 @@ pip install .
 ## Development
 
 ```bash
-# Compile debug build (generates .so and .pyi files)
+# Compile debug build (generates compiled extension and .pyi files)
 nuwa develop
 
 # Compile release build (optimized)
@@ -221,7 +223,7 @@ def add(a: int, b: int) -> int:
 │   └── helpers.nim              # Additional modules
 ├── {module_name}/               # Python package
 │   ├── __init__.py              # Package wrapper (can add Python code here)
-│   ├── {module_name}_lib.so     # Compiled Nim extension (generated)
+│   ├── {module_name}_lib.<ext>  # Compiled Nim extension (platform-specific, generated)
 │   └── {module_name}_lib.pyi    # Type stubs (generated)
 ├── tests/                       # Test files
 │   └── test_{module_name}.py    # Pytest tests
@@ -229,8 +231,10 @@ def add(a: int, b: int) -> int:
 └── pyproject.toml               # Project configuration
 ```
 
-The compiled extension is named `{module_name}_lib.so` to avoid conflicts with the
-Python package. Your `__init__.py` imports from it and can add Python wrappers.
+The compiled extension is named `{module_name}_lib.<ext>` where `<ext>` is the
+platform-specific extension (e.g., `.so`, `.pyd`, or `.cpython-310-x86_64-linux-gnu.so`).
+This avoids conflicts with the Python package. Your `__init__.py` imports from it
+and can add Python wrappers.
 
 ## Usage
 
@@ -316,7 +320,7 @@ The workflow uses [cibuildwheel](https://github.com/pypa/cibuildwheel) to build 
 
 The workflow will automatically:
 - Build wheels for Linux, macOS, and Windows
-- Support Python 3.9, 3.10, 3.11, 3.12, and 3.13
+- Support Python 3.9, 3.10, 3.11, 3.12, 3.13, 3.14
 - Build a source distribution
 - Publish everything to PyPI
 """
@@ -349,7 +353,7 @@ jobs:
       - name: Build wheels
         uses: martineastwood/nuwa-build-action@v1
         with:
-          nim-version: "2.0.0"
+          nim-version: "2.2.0"
 
       - uses: actions/upload-artifact@v4
         with:

@@ -129,7 +129,9 @@ def update_gitignore(path: Path) -> None:
         if "*.so" not in git_content and "*.pyd" not in git_content:
             print("➕ Adding build artifacts to .gitignore")
             with open(gitignore_path, "a", encoding="utf-8") as f:
-                f.write("\n# Nuwa Build Artifacts\n*.so\n*.pyd\nnimcache/\n.nimble/\ndist/\n")
+                f.write(
+                    "\n# Nuwa Build Artifacts\n*.so\n*.so.*\n*.pyd\n*.pyd.*\nnimcache/\n.nimble/\ndist/\n"
+                )
     else:
         print("📄 Creating .gitignore")
         with open(gitignore_path, "w", encoding="utf-8") as f:

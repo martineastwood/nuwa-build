@@ -4,6 +4,7 @@ import os
 import shutil
 import subprocess
 import sys
+import sysconfig
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
@@ -54,10 +55,19 @@ def check_nim_installed() -> None:
 def get_platform_extension() -> str:
     """Get the platform-specific shared library extension.
 
+    Uses sysconfig to get the exact extension Python expects for the current
+    platform, which may include ABI tags (e.g., '.cpython-310-x86_64-linux-gnu.so').
+
     Returns:
-        ".pyd" for Windows, ".so" for other platforms.
+        Platform-specific extension for compiled Python extensions.
     """
-    return ".pyd" if sys.platform == "win32" else ".so"
+    ext_suffix = sysconfig.get_config_var("EXT_SUFFIX")
+    if ext_suffix is None:
+        # Fallback for older Python versions or unusual builds
+        return ".pyd" if sys.platform == "win32" else ".so"
+    # Type narrowing: EXT_SUFFIX is always a string when not None
+    assert isinstance(ext_suffix, str)
+    return ext_suffix
 
 
 def get_wheel_tags(name: str, version: str) -> str:
