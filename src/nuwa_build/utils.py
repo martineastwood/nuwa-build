@@ -131,6 +131,8 @@ def get_wheel_tags(name: str, version: str) -> str:
 def temp_directory():
     """Context manager for a temporary directory.
 
+    Uses tempfile.TemporaryDirectory internally (Python 3.2+).
+
     Yields:
         Path to temporary directory
 
@@ -140,13 +142,8 @@ def temp_directory():
             pass
         # Directory is automatically cleaned up
     """
-    temp_dir = Path(tempfile.mkdtemp())
-    try:
-        yield temp_dir
-    finally:
-        # Clean up directory
-        if temp_dir.exists():
-            shutil.rmtree(temp_dir)
+    with tempfile.TemporaryDirectory() as temp_dir:
+        yield Path(temp_dir)
 
 
 @contextmanager

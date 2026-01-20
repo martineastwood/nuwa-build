@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nuwa-build"
-version = "0.3.5"
+version = "0.3.6"
 description = "Build and publish Nim extensions for Python with zero configuration."
 readme = "README.md"
 authors = [{ name = "Martin Eastwood", email = "martin.eastwood@gmx.com" }]

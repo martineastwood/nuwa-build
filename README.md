@@ -13,6 +13,7 @@ Build Python extensions with Nim using zero-configuration tooling.
 - **Flexible Configuration**: Configure via `pyproject.toml` or CLI arguments
 - **PEP 517/660 Compatible**: Build wheels and source distributions
 - **Build Command**: `nuwa build` for easy local wheel creation
+- **Cross-Platform CI**: Template includes GitHub Actions workflow with manylinux support
 - **Editable Installs**: `pip install -e .` support for development
 - **Watch Mode**: Auto-recompile on file changes with `nuwa watch`
 - **Auto Dependencies**: Automatically install Nimble packages before build
@@ -228,6 +229,60 @@ pip install . --no-build-isolation
 
 # Build source distribution
 python -m build
+```
+
+## Continuous Integration with GitHub Actions
+
+The `nuwa new` template includes a pre-configured GitHub Actions workflow (`.github/workflows/publish.yml`) for automated cross-platform wheel building and PyPI publishing.
+
+### What's Included
+
+The workflow uses a custom composite action (`martineastwood/nuwa-build-action@v1`) that integrates with [cibuildwheel](https://github.com/pypa/cibuildwheel) to build wheels across:
+
+- **Platforms**: Linux (manylinux), macOS, Windows
+- **Python versions**: 3.9, 3.10, 3.11, 3.12, 3.13, 3.14
+- **Architectures**: x86_64, arm64 (Apple Silicon)
+
+### How It Works
+
+The custom action handles platform-specific Nim compiler installation:
+
+| Platform | Installation Method |
+|----------|-------------------|
+| **Linux** | Installs Nim in Docker container via tar.xz |
+| **Windows** | Uses Chocolatey (`choco install nim`) |
+| **macOS** | Uses choosenim installer |
+
+### First-Time Setup
+
+1. **Configure Trusted Publishing** on PyPI:
+   - Go to https://pypi.org/manage/account/publishing/
+   - Add a new publisher with:
+     - PyPI Project Name: Your package name
+     - Owner: Your GitHub username/organization
+     - Repository name: Your repository name
+     - Workflow name: `publish.yml`
+
+2. **Push a version tag** to trigger the workflow:
+   ```bash
+   git tag v1.0.0
+   git push origin v1.0.0
+   ```
+
+### Manual Workflow Trigger
+
+You can also manually trigger the workflow from the GitHub Actions tab in your repository, useful for testing CI before release.
+
+### Customization
+
+To customize the build (e.g., different Nim version or cibuildwheel version), edit `.github/workflows/publish.yml`:
+
+```yaml
+- name: Build wheels
+  uses: martineastwood/nuwa-build-action@v1
+  with:
+    nim-version: "2.2.0"      # Nim version to install
+    cibw-version: "2.22.0"     # cibuildwheel version
 ```
 
 ## Project Structure
