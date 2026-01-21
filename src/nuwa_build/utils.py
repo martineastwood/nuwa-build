@@ -179,6 +179,90 @@ def check_nimble_installed() -> bool:
     return shutil.which("nimble") is not None
 
 
+def _get_nimble_installed_packages() -> str:
+    """Get list of globally installed nimble packages.
+
+    Returns:
+        Lowercase string of installed package names, or empty string if check fails.
+    """
+    try:
+        result = subprocess.run(
+            ["nimble", "list", "-i"], capture_output=True, text=True, check=False
+        )
+        return result.stdout.lower()
+    except (FileNotFoundError, PermissionError, subprocess.SubprocessError):
+        return ""
+
+
+def _filter_uninstalled_deps(deps: list, installed: str) -> list:
+    """Filter out dependencies that are already installed.
+
+    Args:
+        deps: List of nimble package specs (e.g., ["nimpy", "cligen >= 1.0.0"])
+        installed: Lowercase string of installed package names from `nimble list -i`
+
+    Returns:
+        List of deps that need to be installed.
+    """
+    if not installed:
+        # Couldn't check, assume all need installing
+        return deps
+
+    deps_to_install = []
+    for dep in deps:
+        # Extract package name (first word, before version specs)
+        pkg_name = dep.split()[0].lower()
+        if pkg_name not in installed:
+            deps_to_install.append(dep)
+
+    return deps_to_install
+
+
+def _install_single_nimble_dep(
+    dep: str, install_args: list[str], env: Optional[dict] = None
+) -> bool:
+    """Install a single nimble dependency.
+
+    Args:
+        dep: Dependency spec to install
+        install_args: Base install command (e.g., ["nimble", "install", "-y"])
+        env: Optional environment variables (for local_dir installs)
+
+    Returns:
+        True if successfully installed (or already installed), False on failure.
+    """
+    print(f"  Installing {dep}...")
+    try:
+        cmd = install_args + [dep]
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False, env=env)
+
+        if result.returncode != 0:
+            # Check if it's already installed (nimble returns non-zero if already installed)
+            if (
+                "already installed" in result.stdout.lower()
+                or "already installed" in result.stderr.lower()
+            ):
+                print(f"    ✓ {dep} already installed")
+                return True
+            else:
+                print(f"    ⚠ Failed to install {dep}")
+                print(f"    Output: {result.stdout}")
+                if result.stderr:
+                    print(f"    Errors: {result.stderr}")
+                return False
+        else:
+            print(f"    ✓ {dep} installed successfully")
+            return True
+
+    except FileNotFoundError:
+        raise RuntimeError(
+            "nimble command not found. Make sure Nim is properly installed and in your PATH."
+        ) from None
+    except (OSError, subprocess.SubprocessError) as e:
+        print(f"    ⚠ Error installing {dep}: {e}")
+        return False
+
+
 def install_nimble_dependencies(deps: list, local_dir: Optional[Path] = None) -> None:
     """Install missing nimble dependencies.
 
@@ -187,7 +271,7 @@ def install_nimble_dependencies(deps: list, local_dir: Optional[Path] = None) ->
         local_dir: Optional path to local nimble directory (for project-level isolation)
 
     Raises:
-        RuntimeError: If nimble is not installed or installation fails.
+        RuntimeError: If nimble is not installed.
     """
     if not deps:
         return
@@ -199,81 +283,31 @@ def install_nimble_dependencies(deps: list, local_dir: Optional[Path] = None) ->
             "Visit https://nim-lang.org/install.html for instructions."
         )
 
-    # When using a local directory, we skip the "already installed" check
-    # since checking against a custom nimbleDir is complex.
-    # We rely on nimble's internal caching to skip re-installation if already present.
-    deps_to_install = deps
-
+    # Determine which deps need installing
     if local_dir:
-        # Enforce project-level isolation
-        local_dir_abs = local_dir.resolve()
-        # Create the directory if it doesn't exist
-        local_dir_abs.mkdir(parents=True, exist_ok=True)
+        # For local installs, we skip the "already installed" check since
+        # checking against a custom nimbleDir is complex. We rely on nimble's
+        # internal caching to skip re-installation if already present.
+        local_dir.mkdir(parents=True, exist_ok=True)
+        deps_to_install = deps
         print(f"📦 Installing dependencies to {local_dir}...")
+        env = os.environ.copy()
+        env["NIMBLE_DIR"] = str(local_dir)
     else:
-        # Get list of installed packages for global installs
-        try:
-            result = subprocess.run(
-                ["nimble", "list", "-i"], capture_output=True, text=True, check=False
-            )
-            installed = result.stdout.lower()
-        except (FileNotFoundError, PermissionError, subprocess.SubprocessError):
-            installed = ""
+        # For global installs, filter out already-installed packages
+        installed = _get_nimble_installed_packages()
+        deps_to_install = _filter_uninstalled_deps(deps, installed)
 
-        # Extract package names from dependency specs (remove version constraints)
-        deps_to_install = []
-        for dep in deps:
-            # Extract package name (first word, before version specs)
-            pkg_name = dep.split()[0].lower()
-            if pkg_name not in installed:
-                deps_to_install.append(dep)
-
-        # Skip if all dependencies are already installed
         if not deps_to_install:
             return
 
         print(f"📦 Installing nimble dependencies globally: {', '.join(deps_to_install)}")
+        env = None
 
-    # Build base install command
+    # Install each dependency
     install_args = ["nimble", "install", "-y"]
-    if local_dir:
-        # Set environment variable to override nimble directory
-        env = os.environ.copy()
-        env["NIMBLE_DIR"] = str(local_dir)
-
-    # Try to install each dependency
     for dep in deps_to_install:
-        print(f"  Installing {dep}...")
-        try:
-            cmd = install_args + [dep]
-            if local_dir:
-                result = subprocess.run(cmd, capture_output=True, text=True, check=False, env=env)
-            else:
-                result = subprocess.run(cmd, capture_output=True, text=True, check=False)
-
-            if result.returncode != 0:
-                # Check if it's already installed (nimble returns non-zero if already installed)
-                if (
-                    "already installed" in result.stdout.lower()
-                    or "already installed" in result.stderr.lower()
-                ):
-                    print(f"    ✓ {dep} already installed")
-                else:
-                    print(f"    ⚠ Failed to install {dep}")
-                    print(f"    Output: {result.stdout}")
-                    if result.stderr:
-                        print(f"    Errors: {result.stderr}")
-                    # Don't fail hard, just warn
-            else:
-                print(f"    ✓ {dep} installed successfully")
-
-        except FileNotFoundError:
-            raise RuntimeError(
-                "nimble command not found. Make sure Nim is properly installed and in your PATH."
-            ) from None
-        except (OSError, subprocess.SubprocessError) as e:
-            print(f"    ⚠ Error installing {dep}: {e}")
-            # Don't fail hard, just warn and continue
+        _install_single_nimble_dep(dep, install_args, env)
 
     print("✓ Nimble dependencies ready")
 
