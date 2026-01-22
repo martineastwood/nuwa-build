@@ -190,7 +190,12 @@ def _compile_nim(
     check_nim_installed()
 
     # Load and resolve configuration
-    config = parse_nuwa_config()
+    # Extract profile from config_overrides if present (it's not a standard config key)
+    profile = None
+    if config_overrides:
+        profile = config_overrides.pop("profile", None)
+
+    config = parse_nuwa_config(profile=profile)
     if config_overrides:
         config = merge_cli_args(config, config_overrides)
 

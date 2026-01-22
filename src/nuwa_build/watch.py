@@ -20,6 +20,9 @@ def run_watch(args) -> None:
         args: Parsed command-line arguments
     """
 
+    # Get profile from args (may be None)
+    profile = getattr(args, "profile", None)
+
     # Build config overrides from args
     config_overrides = build_config_overrides(
         module_name=args.module_name,
@@ -27,10 +30,17 @@ def run_watch(args) -> None:
         entry_point=args.entry_point,
         output_location=args.output_dir,
         nim_flags=args.nim_flags,
+        profile=profile,
     )
 
     # Load and resolve configuration
-    config = parse_nuwa_config()
+    # Determine build type - profile takes precedence over --release flag
+    if profile:
+        build_type = "release" if profile == "release" else "debug"
+    else:
+        build_type = "release" if args.release else "debug"
+
+    config = parse_nuwa_config(profile=profile)
     if config_overrides:
         config = merge_cli_args(config, config_overrides)
 
@@ -39,7 +49,6 @@ def run_watch(args) -> None:
     if not watch_dir.exists():
         raise FileNotFoundError(f"Nim source directory not found: {watch_dir}")
 
-    build_type = "release" if args.release else "debug"
     debounce_delay = DEFAULT_DEBOUNCE_DELAY
 
     # Create handler with closure for state

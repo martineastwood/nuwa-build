@@ -69,11 +69,14 @@ def _validate_config_fields(config: dict[str, Any]) -> None:
         raise ValueError("nim_source cannot be empty")
 
 
-def parse_nuwa_config() -> dict[str, Any]:
+def parse_nuwa_config(profile: Optional[str] = None) -> dict[str, Any]:
     """Parse Nuwa configuration from pyproject.toml with defaults.
 
     Reads [tool.nuwa] section from pyproject.toml and merges with defaults.
     Derives module name from [project.name] if not explicitly set.
+
+    Args:
+        profile: Optional profile name to apply from [tool.nuwa.profiles]
 
     Returns:
         Configuration dictionary
@@ -106,6 +109,17 @@ def parse_nuwa_config() -> dict[str, Any]:
         "bindings": nuwa.get("bindings", "nimpy"),
         "nimble_deps": list(nuwa.get("nimble-deps", [])),
     }
+
+    # Apply profile if specified
+    if profile:
+        profiles = nuwa.get("profiles", {})
+        if profile not in profiles:
+            available = ", ".join(profiles.keys()) if profiles else "none"
+            raise ValueError(f"Unknown profile '{profile}'. Available profiles: {available}")
+        profile_config = profiles[profile]
+        profile_flags = profile_config.get("nim-flags", [])
+        # Extend base flags with profile flags (profile flags come after for override behavior)
+        config["nim_flags"].extend(profile_flags)
 
     _validate_config_fields(config)
     return config

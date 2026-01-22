@@ -102,6 +102,16 @@ entry-point = "my_lib.nim"      # Main Nim file (auto-discovered if not set)
 output-location = "auto"        # "auto" (flat), "src", or custom path
 nim-flags = []                  # Additional compiler flags
 nimble-deps = ["nimpy"]         # Auto-installed dependencies
+
+# Build profiles (predefined compiler flag sets)
+[tool.nuwa.profiles.dev]
+nim-flags = ["-d:debug", "--debugger:native", "--linenos:on"]
+
+[tool.nuwa.profiles.release]
+nim-flags = ["-d:release", "--opt:speed", "--stacktrace:off"]
+
+[tool.nuwa.profiles.bench]
+nim-flags = ["-d:release", "--opt:speed", "--stacktrace:on"]
 ```
 
 **Configuration Options:**
@@ -113,6 +123,21 @@ nimble-deps = ["nimpy"]         # Auto-installed dependencies
 - `output-location`: Where to place compiled extension
 - `nim-flags`: Additional Nim compiler flags (e.g., `["-d:danger", "--opt:size"]`)
 - `nimble-deps`: Nimble packages to auto-install before build
+- `profiles`: Predefined build profiles with preset compiler flags
+
+**Using Build Profiles:**
+
+```bash
+# Use a profile when building
+nuwa develop --profile dev
+nuwa build --profile release
+nuwa watch --profile bench
+```
+
+**Flag precedence:**
+1. Base `nim-flags` from `[tool.nuwa]`
+2. Profile flags (appended)
+3. CLI `--nim-flag` arguments (applied last)
 
 ## Entry Point Discovery
 
@@ -272,8 +297,38 @@ When helping users with nuwa-build:
 9. **Use `include` for multi-file projects** - Not `import`, when building shared libraries
 10. **Name entry points consistently** - Use `{module_name}_lib.nim` for auto-discovery
 11. **Test after building** - Run `pytest` directly after `nuwa develop` completes
+12. **Use build profiles for consistency** - Recommend profiles over ad-hoc `--nim-flag` usage when appropriate
+13. **Check for existing profiles** - Review `[tool.nuwa.profiles]` before suggesting new compiler flag combinations
 
 ## Advanced Usage
+
+### Shell Completion
+
+Nuwa supports shell completion for bash, zsh, and fish. This requires the optional `shtab` dependency.
+
+**Installation:**
+
+```bash
+# Install shtab
+pip install shtab
+
+# Generate and install completions
+nuwa --print-completion bash > ~/.local/share/bash-completion/completions/nuwa
+nuwa --print-completion zsh > ~/.zfunc/_nuwa
+nuwa --print-completion fish > ~/.config/fish/completions/nuwa.fish
+```
+
+**For zsh users**, add to `~/.zshrc`:
+
+```bash
+fpath=(~/.zfunc $fpath)
+autoload -U compinit && compinit
+```
+
+**When helping users set up their environment:**
+- Mention shell completion as an optional productivity booster
+- It's not required for basic usage but improves CLI experience
+- Completion works for all commands, flags, and suggests files/directories
 
 ### Custom Compiler Flags
 
@@ -287,6 +342,23 @@ nim-flags = [
     "-d:release",     # Release mode
 ]
 ```
+
+### Build Profiles (Preferred Approach)
+
+For reusable flag sets, use build profiles instead of base `nim-flags`:
+
+```toml
+[tool.nuwa.profiles.dev]
+nim-flags = ["-d:debug", "--debugger:native", "--linenos:on"]
+
+[tool.nuwa.profiles.release]
+nim-flags = ["-d:release", "--opt:speed", "--stacktrace:off"]
+
+[tool.nuwa.profiles.bench]
+nim-flags = ["-d:release", "--opt:speed", "--stacktrace:on"]
+```
+
+Usage: `nuwa develop --profile dev`
 
 ### Custom Output Location
 
@@ -351,6 +423,9 @@ nuwa build
 
 # Build with custom flags
 nuwa build --nim-flag="-d:release" --nim-flag="--opt:speed"
+
+# Build with profile (recommended)
+nuwa build --profile release
 
 # Install and test locally
 pip install dist/*.whl

@@ -32,7 +32,7 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest >= 7.0.0", "pytest-cov >= 4.0.0"]
-dev = ["mypy >= 1.0.0", "ruff >= 0.1.0", "pre-commit >= 4.0.0"]
+dev = ["mypy >= 1.0.0", "pre-commit >= 4.0.0", "ruff >= 0.1.0", "shtab >= 1.7.0"]
 
 [project.scripts]
 # This registers the 'nuwa' command in your terminal

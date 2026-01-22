@@ -49,6 +49,10 @@ def add_build_arguments(parser):
         dest="nim_flags",
         help="Additional Nim compiler flags (can be used multiple times)",
     )
+    parser.add_argument(
+        "--profile",
+        help="Build profile to use (from [tool.nuwa.profiles] in pyproject.toml)",
+    )
 
 
 def handle_cli_error(error: Exception, context: str = "") -> None:
@@ -136,13 +140,20 @@ def run_develop(args: argparse.Namespace) -> None:
     Args:
         args: Parsed command-line arguments
     """
-    build_type = "release" if args.release else "debug"
+    # Determine build type - profile takes precedence over --release flag
+    profile = getattr(args, "profile", None)
+    if profile:
+        build_type = "release" if profile == "release" else "debug"
+    else:
+        build_type = "release" if args.release else "debug"
+
     config_overrides = build_config_overrides(
         module_name=args.module_name,
         nim_source=args.nim_source,
         entry_point=args.entry_point,
         output_location=args.output_dir,
         nim_flags=args.nim_flags,
+        profile=profile,
     )
 
     _compile_nim(
@@ -160,12 +171,16 @@ def run_build(args: argparse.Namespace) -> None:
     Args:
         args: Parsed command-line arguments
     """
+    # Get profile from args (may be None)
+    profile = getattr(args, "profile", None)
+
     config_overrides = build_config_overrides(
         module_name=args.module_name,
         nim_source=args.nim_source,
         entry_point=args.entry_point,
         output_location=args.output_dir,
         nim_flags=args.nim_flags,
+        profile=profile,
     )
 
     # Setup output directory
@@ -265,6 +280,19 @@ def main() -> None:
         action="version",
         version=f"%(prog)s {__version__}",
     )
+
+    # Add shell completion support (optional - requires shtab)
+    try:
+        import shtab
+
+        shtab.add_argument_to(
+            parser,
+            "--print-completion",
+            help="Print shell completion script for the specified shell",
+        )
+    except ImportError:
+        # shtab is not installed - skip completion support
+        pass
 
     subparsers = parser.add_subparsers(dest="command", required=False)
 
