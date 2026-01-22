@@ -21,6 +21,19 @@ entry-point = "{module_name}_lib.nim"
 # Tip: Pin versions using "@" (e.g. "package@1.2.3") or ranges ("package >= 1.0")
 nimble-deps = ["nimpy@0.2.1", "nuwa_sdk@0.2.0"]
 
+# Build profiles - predefined compiler flag sets for different scenarios
+# Use: nuwa develop --profile dev
+[tool.nuwa.profiles.dev]
+nim-flags = ["-d:debug", "--debugger:native", "--linenos:on", "--stacktrace:on"]
+
+# Use: nuwa build --profile release
+[tool.nuwa.profiles.release]
+nim-flags = ["-d:release", "--opt:speed", "--stacktrace:off", "--checks:off"]
+
+# Use: nuwa develop --profile bench
+[tool.nuwa.profiles.bench]
+nim-flags = ["-d:release", "--opt:speed", "--stacktrace:on"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = "."
@@ -171,6 +184,7 @@ A Nim extension for Python built with [Nuwa Build](https://github.com/martineast
 - ✅ **Zero-configuration** build system
 - ✅ **Automatic type stubs** (`.pyi` files) for IDE autocomplete
 - ✅ **Fast Nim compilation** with easy Python integration
+- ✅ **Build profiles** for debug, release, and benchmarking
 - ✅ **Editable installs** for rapid development
 - ✅ **GitHub Actions** workflow for automated PyPI publishing
 
@@ -186,8 +200,10 @@ pip install .
 # Compile debug build (generates compiled extension and .pyi files)
 nuwa develop
 
-# Compile release build (optimized)
-nuwa develop --release
+# Use build profiles for different scenarios
+nuwa develop --profile dev      # Debug build with symbols
+nuwa develop --profile release  # Optimized release build
+nuwa develop --profile bench    # Optimized with stack traces for profiling
 
 # Run example
 python example.py
@@ -391,6 +407,16 @@ lib-name = "{module_name}_lib"
 entry-point = "{module_name}_lib.nim"
 # Nimble dependencies (auto-installed before build)
 nimble-deps = ["nimpy", "nuwa_sdk"]
+
+# Build profiles - predefined compiler flag sets for different scenarios
+[tool.nuwa.profiles.dev]
+nim-flags = ["-d:debug", "--debugger:native", "--linenos:on", "--stacktrace:on"]
+
+[tool.nuwa.profiles.release]
+nim-flags = ["-d:release", "--opt:speed", "--stacktrace:off", "--checks:off"]
+
+[tool.nuwa.profiles.bench]
+nim-flags = ["-d:release", "--opt:speed", "--stacktrace:on"]
 """
 
 # Partial template for build system
