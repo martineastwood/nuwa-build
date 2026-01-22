@@ -10,7 +10,7 @@ from nuwa_build.stubs import StubGenerator
 class TestStubGeneratorFileParsing:
     """Tests for file-based stub parsing."""
 
-    def test_parse_stubs_from_directory_with_valid_files(self):
+    def test_parse_stubs_with_valid_files(self):
         """Test parsing stubs from directory with valid JSON files."""
         with tempfile.TemporaryDirectory() as temp_dir:
             stub_dir = Path(temp_dir)
@@ -37,7 +37,7 @@ class TestStubGeneratorFileParsing:
 
             # Parse
             generator = StubGenerator("test_lib")
-            count = generator.parse_stubs_from_directory(stub_dir)
+            count = generator.parse_stubs(stub_dir, "")
 
             assert count == 2
             assert len(generator.entries) == 2
@@ -49,7 +49,7 @@ class TestStubGeneratorFileParsing:
     def test_parse_stubs_from_nonexistent_directory(self):
         """Test parsing from nonexistent directory returns 0."""
         generator = StubGenerator("test_lib")
-        count = generator.parse_stubs_from_directory(Path("/nonexistent/path"))
+        count = generator.parse_stubs(Path("/nonexistent/path"), "")
         assert count == 0
 
     def test_parse_stubs_from_empty_directory(self):
@@ -57,7 +57,7 @@ class TestStubGeneratorFileParsing:
         with tempfile.TemporaryDirectory() as temp_dir:
             stub_dir = Path(temp_dir)
             generator = StubGenerator("test_lib")
-            count = generator.parse_stubs_from_directory(stub_dir)
+            count = generator.parse_stubs(stub_dir, "")
             assert count == 0
 
     def test_parse_stubs_handles_invalid_json(self):
@@ -73,7 +73,7 @@ class TestStubGeneratorFileParsing:
             (stub_dir / "invalid.json").write_text("{invalid json")
 
             generator = StubGenerator("test_lib")
-            count = generator.parse_stubs_from_directory(stub_dir)
+            count = generator.parse_stubs(stub_dir, "")
 
             # Should parse valid file and skip invalid one
             assert count == 1
@@ -89,9 +89,7 @@ class TestStubGeneratorFileParsing:
             compiler_output = 'NUWA_STUB: {"name": "add", "returnType": "int", "args": []}'
 
             generator = StubGenerator("test_lib")
-            count = generator.parse_stubs_from_directory_with_fallback(
-                stub_dir=stub_dir, compiler_output=compiler_output
-            )
+            count = generator.parse_stubs(stub_dir=stub_dir, compiler_output=compiler_output)
 
             assert count == 1
             assert len(generator.entries) == 1
@@ -110,9 +108,7 @@ class TestStubGeneratorFileParsing:
             compiler_output = 'NUWA_STUB: {"name": "from_stdout", "returnType": "int", "args": []}'
 
             generator = StubGenerator("test_lib")
-            count = generator.parse_stubs_from_directory_with_fallback(
-                stub_dir=stub_dir, compiler_output=compiler_output
-            )
+            count = generator.parse_stubs(stub_dir=stub_dir, compiler_output=compiler_output)
 
             # Should use file-based mode, ignore stdout
             assert count == 1
@@ -144,7 +140,7 @@ class TestStubGeneratorIntegration:
 
             # Generate
             generator = StubGenerator("test_lib")
-            generator.parse_stubs_from_directory(stub_dir)
+            generator.parse_stubs(stub_dir, "")
             pyi_path = generator.generate_pyi(output_dir)
 
             # Verify
@@ -191,7 +187,7 @@ class TestStubGeneratorIntegration:
 
             # Generate
             generator = StubGenerator("mylib")
-            generator.parse_stubs_from_directory(stub_dir)
+            generator.parse_stubs(stub_dir, "")
             pyi_path = generator.generate_pyi(output_dir)
 
             # Verify
@@ -221,7 +217,7 @@ class TestStubGeneratorIntegration:
 
             # Generate
             generator = StubGenerator("test_lib")
-            generator.parse_stubs_from_directory(stub_dir)
+            generator.parse_stubs(stub_dir, "")
             pyi_path = generator.generate_pyi(output_dir)
 
             # Verify List import is included
@@ -247,7 +243,7 @@ class TestStubGeneratorIntegration:
 
             # Generate
             generator = StubGenerator("test_lib")
-            generator.parse_stubs_from_directory(stub_dir)
+            generator.parse_stubs(stub_dir, "")
             pyi_path = generator.generate_pyi(output_dir)
 
             # Verify multiline docstring formatting

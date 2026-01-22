@@ -1,6 +1,5 @@
 """Core compilation functionality for Nuwa Build."""
 
-import logging
 import shutil
 import subprocess
 from pathlib import Path
@@ -8,7 +7,7 @@ from typing import Optional
 
 from .config import load_pyproject_toml, merge_cli_args, parse_nuwa_config
 from .discovery import discover_nim_sources, validate_nim_entry_point
-from .errors import format_compilation_error, format_compilation_success
+from .errors import format_compilation_error
 from .stubs import StubGenerator
 from .utils import (
     NIM_APP_LIB_FLAG,
@@ -22,8 +21,6 @@ from .utils import (
     install_nimble_dependencies,
     temp_directory,
 )
-
-logger = logging.getLogger("nuwa")
 
 
 def _extract_metadata() -> tuple[str, str]:
@@ -132,7 +129,6 @@ def _run_compilation(
         RuntimeError: If Nim compiler is not found
         subprocess.CalledProcessError: If compilation fails
     """
-    logger.info(f"Compiling {entry_point} -> {out_path}")
     print(f"🐍 Nuwa: Compiling {entry_point} -> {out_path}...")
 
     try:
@@ -152,9 +148,8 @@ def _run_compilation(
                     warnings_hints.append(line)
 
             if warnings_hints:
-                logger.debug("Compiler warnings/hints:")
                 for warning in warnings_hints:
-                    logger.debug(f"  {warning}")
+                    print(f"  {warning}")
 
         return result
 
@@ -221,7 +216,6 @@ def _compile_nim(
         if entry_point_content is not None:
             entry_point.parent.mkdir(parents=True, exist_ok=True)
             entry_point.write_text(entry_point_content)
-            logger.debug(f"Wrote entry point content to: {entry_point}")
     else:
         nim_dir, entry_point = discover_nim_sources(config)
 
@@ -266,21 +260,19 @@ def _compile_nim(
         result = _run_compilation(cmd, entry_point, out_path)
 
         # Success
-        logger.debug(f"Successfully compiled {out_path}")
-        print(format_compilation_success(out_path))
+        size_mb = out_path.stat().st_size / (1024 * 1024)
+        print(f"✅ Built {out_path.name} ({size_mb:.2f} MB)")
 
         # Generate type stubs
         generator = StubGenerator(lib_name)
-        stub_count = generator.parse_stubs_from_directory_with_fallback(
+        stub_count = generator.parse_stubs(
             stub_dir=stub_dir,
             compiler_output=result.stdout,
         )
 
         if stub_count > 0:
             generator.generate_pyi(out_path.parent)
-            logger.info(f"Generated {stub_count} type stubs for {lib_name}")
-        else:
-            logger.debug("No stub metadata found in compiler output (nuwa_sdk not used?)")
+            print(f"Generated {stub_count} type stubs for {lib_name}")
 
     # Temp directory is automatically cleaned up here
 

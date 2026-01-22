@@ -27,10 +27,6 @@ RELEASE_FLAG = "-d:release"
 NIMBLE_PKGS_DIR = "pkgs"
 NIMBLE_PKGS2_DIR = "pkgs2"
 
-# File extension constants
-PYD_EXTENSION = ".pyd"
-SO_EXTENSION = ".so"
-
 # Watch mode timing
 DEFAULT_DEBOUNCE_DELAY = 0.5  # seconds
 
@@ -94,7 +90,7 @@ def get_platform_extension() -> str:
     ext_suffix = sysconfig.get_config_var("EXT_SUFFIX")
     if ext_suffix is None:
         # Fallback for older Python versions or unusual builds
-        return PYD_EXTENSION if sys.platform == "win32" else SO_EXTENSION
+        return ".pyd" if sys.platform == "win32" else ".so"
     # Type narrowing: EXT_SUFFIX is always a string when not None
     assert isinstance(ext_suffix, str)
     return ext_suffix
@@ -179,92 +175,8 @@ def check_nimble_installed() -> bool:
     return shutil.which("nimble") is not None
 
 
-def _get_nimble_installed_packages() -> str:
-    """Get list of globally installed nimble packages.
-
-    Returns:
-        Lowercase string of installed package names, or empty string if check fails.
-    """
-    try:
-        result = subprocess.run(
-            ["nimble", "list", "-i"], capture_output=True, text=True, check=False
-        )
-        return result.stdout.lower()
-    except (FileNotFoundError, PermissionError, subprocess.SubprocessError):
-        return ""
-
-
-def _filter_uninstalled_deps(deps: list, installed: str) -> list:
-    """Filter out dependencies that are already installed.
-
-    Args:
-        deps: List of nimble package specs (e.g., ["nimpy", "cligen >= 1.0.0"])
-        installed: Lowercase string of installed package names from `nimble list -i`
-
-    Returns:
-        List of deps that need to be installed.
-    """
-    if not installed:
-        # Couldn't check, assume all need installing
-        return deps
-
-    deps_to_install = []
-    for dep in deps:
-        # Extract package name (first word, before version specs)
-        pkg_name = dep.split()[0].lower()
-        if pkg_name not in installed:
-            deps_to_install.append(dep)
-
-    return deps_to_install
-
-
-def _install_single_nimble_dep(
-    dep: str, install_args: list[str], env: Optional[dict] = None
-) -> bool:
-    """Install a single nimble dependency.
-
-    Args:
-        dep: Dependency spec to install
-        install_args: Base install command (e.g., ["nimble", "install", "-y"])
-        env: Optional environment variables (for local_dir installs)
-
-    Returns:
-        True if successfully installed (or already installed), False on failure.
-    """
-    print(f"  Installing {dep}...")
-    try:
-        cmd = install_args + [dep]
-        result = subprocess.run(cmd, capture_output=True, text=True, check=False, env=env)
-
-        if result.returncode != 0:
-            # Check if it's already installed (nimble returns non-zero if already installed)
-            if (
-                "already installed" in result.stdout.lower()
-                or "already installed" in result.stderr.lower()
-            ):
-                print(f"    ✓ {dep} already installed")
-                return True
-            else:
-                print(f"    ⚠ Failed to install {dep}")
-                print(f"    Output: {result.stdout}")
-                if result.stderr:
-                    print(f"    Errors: {result.stderr}")
-                return False
-        else:
-            print(f"    ✓ {dep} installed successfully")
-            return True
-
-    except FileNotFoundError:
-        raise RuntimeError(
-            "nimble command not found. Make sure Nim is properly installed and in your PATH."
-        ) from None
-    except (OSError, subprocess.SubprocessError) as e:
-        print(f"    ⚠ Error installing {dep}: {e}")
-        return False
-
-
 def install_nimble_dependencies(deps: list, local_dir: Optional[Path] = None) -> None:
-    """Install missing nimble dependencies.
+    """Install nimble dependencies.
 
     Args:
         deps: List of nimble package names or specs (e.g., ["nimpy", "cligen >= 1.0.0"])
@@ -272,6 +184,7 @@ def install_nimble_dependencies(deps: list, local_dir: Optional[Path] = None) ->
 
     Raises:
         RuntimeError: If nimble is not installed.
+        subprocess.CalledProcessError: If installation fails.
     """
     if not deps:
         return
@@ -283,31 +196,37 @@ def install_nimble_dependencies(deps: list, local_dir: Optional[Path] = None) ->
             "Visit https://nim-lang.org/install.html for instructions."
         )
 
-    # Determine which deps need installing
+    # Setup environment for local installs
+    env = None
     if local_dir:
-        # For local installs, we skip the "already installed" check since
-        # checking against a custom nimbleDir is complex. We rely on nimble's
-        # internal caching to skip re-installation if already present.
         local_dir.mkdir(parents=True, exist_ok=True)
-        deps_to_install = deps
         print(f"📦 Installing dependencies to {local_dir}...")
         env = os.environ.copy()
         env["NIMBLE_DIR"] = str(local_dir)
     else:
-        # For global installs, filter out already-installed packages
-        installed = _get_nimble_installed_packages()
-        deps_to_install = _filter_uninstalled_deps(deps, installed)
-
-        if not deps_to_install:
-            return
-
-        print(f"📦 Installing nimble dependencies globally: {', '.join(deps_to_install)}")
-        env = None
+        print(f"📦 Installing nimble dependencies: {', '.join(deps)}")
 
     # Install each dependency
-    install_args = ["nimble", "install", "-y"]
-    for dep in deps_to_install:
-        _install_single_nimble_dep(dep, install_args, env)
+    for dep in deps:
+        print(f"  Installing {dep}...")
+        cmd = ["nimble", "install", "-y", dep]
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False, env=env)
+
+        if result.returncode != 0:
+            # Check if it's already installed (nimble returns non-zero if already installed)
+            if (
+                "already installed" not in result.stdout.lower()
+                and "already installed" not in result.stderr.lower()
+            ):
+                print(f"    ⚠ Failed to install {dep}")
+                print(f"    Output: {result.stdout}")
+                if result.stderr:
+                    print(f"    Errors: {result.stderr}")
+                raise RuntimeError(f"Failed to install nimble dependency: {dep}")
+            else:
+                print(f"    ✓ {dep} already installed")
+        else:
+            print(f"    ✓ {dep} installed successfully")
 
     print("✓ Nimble dependencies ready")
 

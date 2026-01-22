@@ -1,6 +1,5 @@
 """File watching functionality for Nuwa Build."""
 
-import logging
 import subprocess
 import time
 from pathlib import Path
@@ -12,8 +11,6 @@ from .backend import _compile_nim
 from .config import build_config_overrides, merge_cli_args, parse_nuwa_config
 from .errors import format_error
 from .utils import DEFAULT_DEBOUNCE_DELAY
-
-logger = logging.getLogger("nuwa")
 
 
 def run_watch(args) -> None:

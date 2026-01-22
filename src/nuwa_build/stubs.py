@@ -1,10 +1,7 @@
 """Type stub generation for Nim-compiled Python extensions."""
 
 import json
-import logging
 from pathlib import Path
-
-logger = logging.getLogger("nuwa")
 
 
 class StubGenerator:
@@ -19,70 +16,10 @@ class StubGenerator:
         self.module_name = module_name
         self.entries: list[dict] = []
 
-    def parse_compiler_output(self, output: str) -> int:
-        """Extract JSON metadata from compiler output.
+    def parse_stubs(self, stub_dir: Path, compiler_output: str) -> int:
+        """Parse stubs from directory or stdout (fallback).
 
-        Args:
-            output: Stdout from Nim compiler containing NUWA_STUB: lines
-
-        Returns:
-            Number of stub entries found
-        """
-        count = 0
-        for line in output.splitlines():
-            line = line.strip()
-            if line.startswith("NUWA_STUB:"):
-                try:
-                    json_str = line[len("NUWA_STUB:") :].strip()
-                    data = json.loads(json_str)
-                    self.entries.append(data)
-                    count += 1
-                    logger.debug(f"Parsed stub metadata for: {data.get('name', '?')}")
-                except json.JSONDecodeError as e:
-                    logger.warning(f"Failed to parse stub metadata: {line[:80]}...")
-                    logger.debug(f"Parse error: {e}")
-
-        return count
-
-    def parse_stubs_from_directory(self, stub_dir: Path) -> int:
-        """Extract JSON metadata from files in a directory.
-
-        Args:
-            stub_dir: Directory containing JSON stub files
-
-        Returns:
-            Number of stub entries found
-        """
-        if not stub_dir.exists():
-            logger.warning(f"Stub directory does not exist: {stub_dir}")
-            return 0
-
-        # Find all JSON files in the directory
-        json_files = list(stub_dir.glob("*.json"))
-
-        if not json_files:
-            logger.debug(f"No JSON files found in stub directory: {stub_dir}")
-            return 0
-
-        count = 0
-        for json_file in json_files:
-            try:
-                data = json.loads(json_file.read_text(encoding="utf-8"))
-                self.entries.append(data)
-                count += 1
-                logger.debug(f"Parsed stub metadata from: {json_file.name}")
-            except json.JSONDecodeError as e:
-                logger.warning(f"Failed to parse stub file {json_file.name}: {e}")
-            except OSError as e:
-                logger.warning(f"Failed to read stub file {json_file.name}: {e}")
-
-        return count
-
-    def parse_stubs_from_directory_with_fallback(self, stub_dir: Path, compiler_output: str) -> int:
-        """Parse stubs from directory, falling back to stdout parsing.
-
-        This is the recommended method that tries file-based parsing first,
-        then falls back to stdout parsing if no files are found.
+        Tries file-based parsing first, falls back to stdout parsing if no files found.
 
         Args:
             stub_dir: Directory containing JSON stub files (may not exist)
@@ -92,15 +29,33 @@ class StubGenerator:
             Number of stub entries found
         """
         # Try file-based approach first
-        file_count = self.parse_stubs_from_directory(stub_dir)
-
-        if file_count > 0:
-            logger.info(f"Using file-based stub generation: found {file_count} stubs")
-            return file_count
+        if stub_dir.exists():
+            json_files = list(stub_dir.glob("*.json"))
+            if json_files:
+                count = 0
+                for json_file in json_files:
+                    try:
+                        data = json.loads(json_file.read_text(encoding="utf-8"))
+                        self.entries.append(data)
+                        count += 1
+                    except (json.JSONDecodeError, OSError) as e:
+                        print(f"Warning: Failed to read stub file {json_file.name}: {e}")
+                return count
 
         # Fall back to stdout parsing
-        logger.info("No stub files found, falling back to stdout parsing")
-        return self.parse_compiler_output(compiler_output)
+        count = 0
+        for line in compiler_output.splitlines():
+            line = line.strip()
+            if line.startswith("NUWA_STUB:"):
+                try:
+                    json_str = line[len("NUWA_STUB:") :].strip()
+                    data = json.loads(json_str)
+                    self.entries.append(data)
+                    count += 1
+                except json.JSONDecodeError:
+                    print(f"Warning: Failed to parse stub metadata: {line[:80]}...")
+
+        return count
 
     def generate_pyi(self, output_dir: Path) -> Path:
         """Write the .pyi file to disk.
@@ -169,18 +124,5 @@ class StubGenerator:
         output_dir.mkdir(parents=True, exist_ok=True)
         pyi_path = output_dir / f"{self.module_name}.pyi"
         pyi_path.write_text("\n".join(pyi_lines), encoding="utf-8")
-        logger.info(f"Generated type stubs: {pyi_path}")
 
         return pyi_path
-
-
-def find_pyi_files(directory: Path) -> list[Path]:
-    """Find all .pyi files in a directory.
-
-    Args:
-        directory: Directory to search
-
-    Returns:
-        List of .pyi file paths
-    """
-    return list(directory.rglob("*.pyi"))

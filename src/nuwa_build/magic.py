@@ -4,7 +4,6 @@
 
 import hashlib
 import importlib.util
-import logging
 import shutil
 import subprocess
 import sys
@@ -22,8 +21,6 @@ from IPython.core.magic import (  # type: ignore[import-not-found]
 from .backend import _compile_nim
 from .config import build_config_overrides
 from .utils import get_platform_extension
-
-logger = logging.getLogger("nuwa")
 
 
 @magics_class
@@ -44,7 +41,6 @@ class NuwaMagics(Magics):
     def _ensure_cache_dir(self):
         """Create .nuwacache directory if it doesn't exist."""
         self.CACHE_DIR.mkdir(exist_ok=True)
-        logger.debug(f"Cache directory: {self.CACHE_DIR.absolute()}")
 
     def _compute_hash(self, code: str, flags: list[str]) -> str:
         """Compute hash of code + flags for cache key.
@@ -88,10 +84,8 @@ class NuwaMagics(Magics):
         so_path = cache_path / module_name / so_name
 
         if so_path.exists():
-            logger.debug(f"Found cached extension: {so_path}")
             return so_path
 
-        logger.debug(f"No cached extension found at: {so_path}")
         return None
 
     def _generate_minimal_pyproject(self, module_name: str, cache_dir: Path) -> Path:
@@ -121,7 +115,6 @@ entry-point = "{module_name}_lib.nim"
         pyproject_path = cache_dir / "pyproject.toml"
         cache_dir.mkdir(parents=True, exist_ok=True)
         pyproject_path.write_text(config)
-        logger.debug(f"Generated pyproject.toml at: {pyproject_path}")
         return pyproject_path
 
     def _compile_nim_from_string(
@@ -205,7 +198,6 @@ entry-point = "{module_name}_lib.nim"
         module_dir = so_path.parent
         if str(module_dir) not in sys.path:
             sys.path.insert(0, str(module_dir))
-            logger.debug(f"Added {module_dir} to sys.path")
 
         # Import the compiled module
         lib_name = f"{module_name}_lib"
@@ -223,7 +215,6 @@ entry-point = "{module_name}_lib.nim"
         for name, func in functions.items():
             shell.user_ns[name] = func
 
-        logger.debug(f"Injected {len(functions)} functions into namespace")
         return functions
 
     def _format_jupyter_error(self, error: str, cache_dir: Path) -> None:
@@ -270,7 +261,7 @@ entry-point = "{module_name}_lib.nim"
                     )
                     return
                 except (ImportError, OSError) as e:
-                    logger.warning(f"Failed to load cached module: {e}. Recompiling...")
+                    print(f"Warning: Failed to load cached module: {e}. Recompiling...")
                     # Fall through to recompile
 
         # 4. Cache miss - compile new code
@@ -283,7 +274,6 @@ entry-point = "{module_name}_lib.nim"
         nim_code = cell
         if "import nuwa_sdk" not in nim_code and "nuwa_export" in nim_code:
             nim_code = "import nuwa_sdk\n\n" + nim_code
-            logger.debug("Auto-added 'import nuwa_sdk' for {.nuwa_export.} pragma")
 
         # 7. Compile using shared backend logic
         try:
@@ -353,4 +343,3 @@ def load_ipython_extension(ipython):
         ipython: IPython shell instance
     """
     ipython.register_magics(NuwaMagics)
-    logger.info("Registered Nuwa magic commands")

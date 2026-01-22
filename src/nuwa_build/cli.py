@@ -1,9 +1,9 @@
 """Command-line interface for Nuwa Build."""
 
 import argparse
-import logging
 import subprocess
 import sys
+import traceback
 from pathlib import Path
 
 from . import __version__
@@ -31,8 +31,6 @@ from .utils import (
     validate_project_name,
 )
 from .watch import run_watch
-
-logger = logging.getLogger("nuwa")
 
 
 def add_build_arguments(parser):
@@ -76,7 +74,9 @@ def handle_cli_error(error: Exception, context: str = "") -> None:
         ),
     ):
         # Log unexpected errors with full traceback
-        logger.error(f"{context}: {error}", exc_info=True)
+
+        print(f"{context}: {error}")
+        traceback.print_exc()
 
     sys.exit(1)
 

@@ -4,9 +4,7 @@ from pathlib import Path
 
 from nuwa_build.errors import (
     format_compilation_error,
-    format_compilation_success,
     get_error_context,
-    get_suggestions,
     parse_nim_error,
 )
 
@@ -111,47 +109,6 @@ line 3
         assert error_idx == 0
 
 
-class TestGetSuggestions:
-    """Tests for getting error suggestions."""
-
-    def test_type_mismatch_suggestions(self):
-        """Test suggestions for type mismatch errors."""
-        suggestions = get_suggestions("type mismatch: got 'int' but expected 'string'")
-
-        assert len(suggestions) > 0
-        assert any("$()" in s for s in suggestions)
-        assert any("int()" in s for s in suggestions)
-
-    def test_undeclared_suggestions(self):
-        """Test suggestions for undeclared identifier errors."""
-        suggestions = get_suggestions("undeclared identifier: 'myVar'")
-
-        assert len(suggestions) > 0
-        assert any("typos" in s.lower() for s in suggestions)
-
-    def test_nuwa_export_suggestions(self):
-        """Test suggestions for nuwa_export pragma errors."""
-        suggestions = get_suggestions("invalid pragma: nuwa_export")
-
-        assert len(suggestions) > 0
-        assert any("nuwa_sdk" in s.lower() for s in suggestions)
-        assert any("import" in s.lower() for s in suggestions)
-
-    def test_exportpy_suggestions_legacy(self):
-        """Test suggestions for legacy exportpy pragma errors."""
-        suggestions = get_suggestions("invalid pragma: exportpy")
-
-        assert len(suggestions) > 0
-        # Should suggest using nuwa_export instead
-        assert any("nuwa_export" in s.lower() for s in suggestions)
-
-    def test_no_suggestions_for_unknown_error(self):
-        """Test that unknown errors return empty list."""
-        suggestions = get_suggestions("some completely unknown error message")
-
-        assert suggestions == []
-
-
 class TestFormatCompilationError:
     """Tests for error formatting."""
 
@@ -170,17 +127,16 @@ class TestFormatCompilationError:
         result = format_compilation_error(stderr, working_dir=tmp_path)
 
         assert "❌ Error in" in result
-        assert "Line 2" in result
-        assert "Code:" in result
+        assert ":2" in result  # Line number is now in the file path format
         assert "return 123" in result
 
-    def test_format_includes_suggestions(self):
-        """Test that formatted error includes suggestions."""
+    def test_format_includes_error_marker(self):
+        """Test that formatted error includes error marker."""
         stderr = "test.nim(5, 10) Error: type mismatch"
 
         result = format_compilation_error(stderr)
 
-        assert "💡 Suggestions:" in result
+        assert "❌" in result  # Error marker
 
     def test_format_includes_full_output(self):
         """Test that full compiler output is included."""
@@ -190,29 +146,3 @@ class TestFormatCompilationError:
 
         assert "--- Full compiler output ---" in result
         assert stderr in result
-
-
-class TestFormatCompilationSuccess:
-    """Tests for success message formatting."""
-
-    def test_format_success_with_size(self, tmp_path):
-        """Test that success message includes file size."""
-        # Create a test file
-        test_file = tmp_path / "test_lib.so"
-        test_file.write_text("x" * 100000)  # 100KB
-
-        result = format_compilation_success(test_file)
-
-        assert "✅ Built test_lib.so" in result
-        # Should show size in MB or KB
-        assert "MB" in result or "KB" in result
-
-    def test_format_success_small_file(self, tmp_path):
-        """Test formatting for small files (< 1 MB)."""
-        test_file = tmp_path / "test_lib.so"
-        test_file.write_text("x" * 50000)  # 50KB
-
-        result = format_compilation_success(test_file)
-
-        assert "0.0" in result  # Small file
-        assert "MB" in result

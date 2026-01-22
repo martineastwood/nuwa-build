@@ -1,14 +1,11 @@
 """Build artifact cleanup functionality for Nuwa Build."""
 
-import logging
 import shutil
 from pathlib import Path
 from typing import Optional
 
 from .config import parse_nuwa_config
 from .utils import get_platform_extension
-
-logger = logging.getLogger("nuwa")
 
 # Directories to clean with their display names
 DIRECTORIES_TO_CLEAN = {
@@ -39,7 +36,6 @@ def _safe_remove_dir(path: Path, name: str) -> tuple[list[str], list[str]]:
             cleaned.append(name)
         except OSError as e:
             errors.append(f"{name}: {e}")
-            logger.warning(f"Failed to remove {path}: {e}")
 
     return cleaned, errors
 
@@ -72,7 +68,6 @@ def _safe_remove_file(path: Path, project_root: Path) -> tuple[list[str], list[s
             cleaned.append(display_path)
         except OSError as e:
             errors.append(f"{path}: {e}")
-            logger.warning(f"Failed to remove {path}: {e}")
 
     return cleaned, errors
 
@@ -138,18 +133,15 @@ def clean_compiled_extensions(project_root: Optional[Path] = None) -> tuple[list
 
     except FileNotFoundError as e:
         # pyproject.toml not found - not a Nuwa project
-        logger.debug(f"No pyproject.toml found, skipping artifact cleaning: {e}")
         errors.append(
             "Could not load pyproject.toml (not a Nuwa project?). "
             "Skipping compiled artifact cleanup."
         )
     except KeyError as e:
         # Config missing required fields
-        logger.warning(f"Config missing required field for artifact cleaning: {e}")
         errors.append(f"Config error: missing field {e}. Skipping artifact cleanup.")
     except (OSError, ValueError) as e:
         # I/O errors or invalid config values
-        logger.error(f"Error during artifact cleaning: {e}", exc_info=True)
         errors.append(
             f"Error cleaning artifacts: {type(e).__name__}: {e}\n"
             f"Compiled extensions may not have been cleaned. Try manually deleting compiled extension files."

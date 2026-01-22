@@ -21,8 +21,6 @@ else:
 __all__ = [
     "tomllib",
     "load_pyproject_toml",
-    "get_default_config",
-    "validate_config",
     "parse_nuwa_config",
     "build_config_overrides",
     "merge_cli_args",
@@ -111,41 +109,6 @@ def parse_nuwa_config() -> dict[str, Any]:
 
     _validate_config_fields(config)
     return config
-
-
-def validate_config(config: dict[str, Any]) -> None:
-    """Validate configuration has all required fields and valid values.
-
-    Args:
-        config: Configuration dictionary to validate
-
-    Raises:
-        ValueError: If required fields are missing or invalid
-    """
-    _validate_config_fields(config)
-
-
-def get_default_config(project_name: str = "nuwa_project") -> dict[str, Any]:
-    """Return default configuration (helper for testing).
-
-    Args:
-        project_name: Project name used to derive module name
-
-    Returns:
-        Dictionary with default configuration values
-    """
-    module_name = normalize_package_name(project_name)
-    lib_name = f"{module_name}_lib"
-    return {
-        "nim_source": DEFAULT_NIM_SOURCE_DIR,
-        "module_name": module_name,
-        "lib_name": lib_name,
-        "entry_point": f"{lib_name}.nim",
-        "output_location": DEFAULT_OUTPUT_LOCATION,
-        "nim_flags": [],
-        "bindings": "nimpy",
-        "nimble_deps": [],
-    }
 
 
 def build_config_overrides(**kwargs: Optional[Any]) -> dict[str, Any]:

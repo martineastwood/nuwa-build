@@ -4,7 +4,6 @@ This module implements the PEP 517 and PEP 660 hooks for building Python wheels
 and source distributions from Nim extensions.
 """
 
-import logging
 import shutil
 from pathlib import Path
 from typing import Optional
@@ -14,8 +13,6 @@ from wheel.wheelfile import WheelFile
 from .backend import _compile_nim, _extract_metadata
 from .config import parse_nuwa_config
 from .utils import get_platform_extension, get_wheel_tags, normalize_package_name
-
-logger = logging.getLogger("nuwa")
 
 
 def write_wheel_metadata(wf: WheelFile, name: str, version: str, tag: str = "py3-none-any") -> str:
@@ -100,7 +97,6 @@ def _add_type_stubs(
     if pyi_file.exists():
         arcname = f"{name_normalized}/{lib_name}.pyi"
         wf.write(str(pyi_file), arcname=arcname)
-        logger.info(f"Including type stubs: {lib_name}.pyi")
 
 
 def _add_wheel_metadata(

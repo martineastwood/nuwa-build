@@ -253,15 +253,17 @@ class TestHandleCliError:
         captured = capsys.readouterr()
         assert "Configuration Error" in captured.out
 
-    def test_logs_unexpected_errors(self, caplog):
+    def test_logs_unexpected_errors(self, capsys):
         """Test that unexpected errors are logged with traceback."""
 
         error = Exception("unexpected")
         with pytest.raises(SystemExit):
             handle_cli_error(error, context="Test context")
 
-        # Check that error was logged
-        assert any("Test context" in record.message for record in caplog.records)
+        # Check that error was printed
+        captured = capsys.readouterr()
+        assert "Test context" in captured.out
+        assert "unexpected" in captured.out
 
 
 class TestConstants:

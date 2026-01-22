@@ -97,82 +97,8 @@ def get_error_context(
         return [], 0
 
 
-ERROR_SUGGESTIONS = {
-    # Type errors
-    "type mismatch": [
-        "Check that argument types match the function signature",
-        "Use $() to convert to string: $(myInt)",
-        "Use int() to convert string to int: int(myString)",
-    ],
-    # Undeclared identifiers
-    "undeclared": [
-        "Check for typos in the identifier name",
-        "Make sure the variable is defined before use",
-        "Import the module if it's defined elsewhere",
-    ],
-    # Missing imports
-    "cannot open": [
-        "Ensure the file exists in the project directory",
-        "Check the file name and path are correct",
-        "Make sure you're using 'include' for shared libraries, not 'import'",
-    ],
-    # Module issues
-    "module": [
-        "Ensure the module is in your Nim path",
-        "Check that all 'include'd files exist",
-    ],
-    # Nuwa SDK specific
-    "nuwa_sdk": [
-        "Install nimble package: nimble install nuwa_sdk",
-        "Import nuwa_sdk: import nuwa_sdk",
-        "Make sure proc has {.nuwa_export.} pragma",
-    ],
-    # Nuwa export/pragma errors
-    "nuwa_export": [
-        "Make sure you imported nuwa_sdk: import nuwa_sdk",
-        "Install nimble package: nimble install nuwa_sdk",
-        "The {.nuwa_export.} pragma requires the nuwa_sdk module",
-    ],
-    # Legacy exportpy (for backward compatibility with error messages)
-    "exportpy": [
-        "Consider using {.nuwa_export.} instead (requires nuwa_sdk)",
-        "Install nimble package: nimble install nuwa_sdk",
-        "Import nuwa_sdk: import nuwa_sdk",
-    ],
-    "pragma": [
-        "Check that the pragma name is spelled correctly",
-        "Some pragmas require importing specific modules",
-    ],
-    # Syntax errors
-    "expected": [
-        "Check for missing parentheses, brackets, or braces",
-        "Ensure proper indentation",
-        "Check that statements are separated correctly",
-    ],
-}
-
-
-def get_suggestions(error_message: str) -> list[str]:
-    """Get helpful suggestions based on error message.
-
-    Args:
-        error_message: The error message text
-
-    Returns:
-        List of suggestion strings
-    """
-    suggestions = []
-    error_lower = error_message.lower()
-
-    for keyword, tips in ERROR_SUGGESTIONS.items():
-        if keyword.lower() in error_lower:
-            suggestions.extend(tips)
-
-    return suggestions
-
-
 def format_compilation_error(stderr: str, working_dir: Optional[Path] = None) -> str:
-    """Format Nim compiler error with context and suggestions.
+    """Format Nim compiler error with context.
 
     Args:
         stderr: Raw stderr from Nim compiler
@@ -197,29 +123,17 @@ def format_compilation_error(stderr: str, working_dir: Optional[Path] = None) ->
 
     # Header
     symbol = "❌" if error["level"] == "Error" else "⚠️"
-    output.append(f"\n{symbol} {error['level']} in {file_path}")
-    output.append(f"   Line {error['line']}, Column {error['col']}")
+    output.append(f"\n{symbol} {error['level']} in {file_path}:{error['line']}")
     output.append("")
 
     # Error message
-    output.append(f"Message: {error['message']}")
+    output.append(f"   {error['message']}")
     output.append("")
 
-    # Context
-    context_lines, error_idx = get_error_context(file_path, error["line"])
+    # Context (if available)
+    context_lines, _ = get_error_context(file_path, error["line"])
     if context_lines:
-        output.append("Code:")
-        output.append("```nim")
         output.extend(context_lines)
-        output.append("```")
-        output.append("")
-
-    # Suggestions
-    suggestions = get_suggestions(error["message"])
-    if suggestions:
-        output.append("💡 Suggestions:")
-        for i, suggestion in enumerate(suggestions, 1):
-            output.append(f"  {i}. {suggestion}")
         output.append("")
 
     # Full compiler output (for debugging)
@@ -227,18 +141,3 @@ def format_compilation_error(stderr: str, working_dir: Optional[Path] = None) ->
     output.append(stderr)
 
     return "\n".join(output)
-
-
-def format_compilation_success(output_path: Path) -> str:
-    """Format successful compilation message.
-
-    Args:
-        output_path: Path to compiled extension
-
-    Returns:
-        Formatted success message
-    """
-    size = output_path.stat().st_size
-    size_mb = size / (1024 * 1024)
-
-    return f"✅ Built {output_path.name} ({size_mb:.2f} MB)"
