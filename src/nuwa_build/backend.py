@@ -132,15 +132,9 @@ def _run_compilation(
     print(f"🐍 Nuwa: Compiling {entry_point} -> {out_path}...")
 
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
 
-        if result.returncode != 0:
-            # Format and display error with context
-            formatted_error = format_compilation_error(result.stderr, working_dir=Path.cwd())
-            print(formatted_error)
-            raise subprocess.CalledProcessError(result.returncode, cmd)
-
-        # Log warnings and hints
+        # Log warnings and hints from successful compilations
         if result.stderr:
             warnings_hints = []
             for line in result.stderr.splitlines():
@@ -153,6 +147,11 @@ def _run_compilation(
 
         return result
 
+    except subprocess.CalledProcessError as e:
+        # Format and display error with context
+        formatted_error = format_compilation_error(e.stderr, working_dir=Path.cwd())
+        print(formatted_error)
+        raise
     except FileNotFoundError:
         raise RuntimeError(
             f"Nim compiler not found at '{shutil.which('nim')}'.\n"

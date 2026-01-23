@@ -421,6 +421,80 @@ autoload -U compinit && compinit
 
 Completions work automatically for all commands, flags, and will suggest files/directories where appropriate.
 
+## Package Data
+
+Nuwa automatically includes all non-Python files in your package directory (config files, data files, templates, etc.) when building wheels.
+
+### Automatic Inclusion (Default)
+
+By default, all files in your package directory are included in the wheel, except for:
+
+- Python cache (`__pycache__`, `*.pyc`, `*.pyo`)
+- Compiled extensions (`.so`, `.pyd`, `.dll` - added separately)
+- Version control (`.git`, `.hg`, `.svn`)
+- Build artifacts (`dist/`, `build/`, `*.egg-info`)
+- Development caches (`.pytest_cache`, `.mypy_cache`, `.ruff_cache`)
+- IDE files (`.vscode`, `.idea`, `.DS_Store`)
+- Test directories (`tests/`, `test/`)
+
+**Example project structure:**
+```
+my_package/
+├── __init__.py          # Python wrapper
+├── my_package_lib.so    # Compiled Nim extension (generated)
+├── config.json          # ✅ Included in wheel
+├── data.csv             # ✅ Included in wheel
+├── models/
+│   └── model.bin        # ✅ Included in wheel
+└── templates/
+    └── template.html    # ✅ Included in wheel
+```
+
+### Fine-Grained Control with MANIFEST.in
+
+For precise control over what's included in your wheel, create a `MANIFEST.in` file in your project root:
+
+```
+include package/config.json
+recursive-include package/templates *.html *.css *.js
+global-include *.md
+exclude package/dev_config.yaml
+recursive-exclude package/tests *.py
+```
+
+**Supported commands:**
+
+- `include pattern ...` - Include files matching patterns
+- `exclude pattern ...` - Exclude files matching patterns
+- `recursive-include dir pattern ...` - Include files in directory matching patterns
+- `recursive-exclude dir pattern ...` - Exclude files in directory matching patterns
+- `global-include pattern ...` - Include files anywhere matching patterns
+- `global-exclude pattern ...` - Exclude files anywhere matching patterns
+
+**Common examples:**
+
+```bash
+# Include specific config file
+include package/production.json
+
+# Exclude development configs
+exclude package/*-dev.yaml
+exclude package/config.local.*
+
+# Include all templates
+recursive-include package/templates *
+
+# Include but exclude test data
+recursive-include package/data *.csv
+recursive-exclude package/data test-*.csv
+
+# Include documentation
+global-include *.md
+global-include LICENSE
+```
+
+**Note:** If `MANIFEST.in` doesn't exist, all package data is included automatically (smart defaults).
+
 ## CLI Commands
 
 ### `nuwa new <path>`

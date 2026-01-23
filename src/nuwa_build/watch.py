@@ -52,20 +52,22 @@ def run_watch(args) -> None:
     debounce_delay = DEFAULT_DEBOUNCE_DELAY
 
     # Create handler with closure for state
-    last_compile = [0.0]  # Use list for mutability in closure
+    last_compile = 0.0
 
     def on_modified(event) -> None:
         """Handle file modification events."""
+        nonlocal last_compile
+
         # Only process .nim files
         if not event.src_path.endswith(".nim"):
             return
 
         # Debounce: wait for file changes to settle
         now = time.time()
-        if now - last_compile[0] < debounce_delay:
+        if now - last_compile < debounce_delay:
             return
 
-        last_compile[0] = now
+        last_compile = now
 
         # Get relative path for cleaner output
         rel_path = Path(event.src_path).relative_to(Path.cwd())

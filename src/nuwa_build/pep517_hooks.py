@@ -5,6 +5,7 @@ and source distributions from Nim extensions.
 """
 
 import shutil
+from fnmatch import fnmatch
 from pathlib import Path
 from typing import Optional
 
@@ -44,18 +45,232 @@ def write_wheel_metadata(wf: WheelFile, name: str, version: str, tag: str = "py3
     return dist_info
 
 
+def _parse_manifest(manifest_path: Path) -> dict[str, list[str]]:
+    """Parse MANIFEST.in file into structured commands.
+
+    Args:
+        manifest_path: Path to MANIFEST.in file
+
+    Returns:
+        Dictionary with commands as keys and pattern lists as values
+        Keys: 'include', 'exclude', 'recursive-include', 'recursive-exclude',
+              'global-include', 'global-exclude'
+    """
+    commands: dict[str, list[str]] = {
+        "include": [],
+        "exclude": [],
+        "recursive-include": [],
+        "recursive-exclude": [],
+        "global-include": [],
+        "global-exclude": [],
+    }
+
+    if not manifest_path.exists():
+        return commands
+
+    with open(manifest_path) as f:
+        for line in f:
+            line = line.strip()
+            # Skip empty lines and comments
+            if not line or line.startswith("#"):
+                continue
+
+            parts = line.split()
+            if len(parts) < 2:
+                continue
+
+            cmd = parts[0]
+            if cmd in commands:
+                commands[cmd].extend(parts[1:])
+
+    return commands
+
+
 def _add_python_package_files(wf: WheelFile, name_normalized: str) -> None:
     """Add Python package files to the wheel.
+
+    Respects MANIFEST.in if present, otherwise includes all package data
+    while excluding cache/build artifacts.
 
     Args:
         wf: WheelFile object to write to
         name_normalized: Normalized package name
     """
     package_dir = Path(name_normalized)
-    if package_dir.exists():
-        for py_file in package_dir.rglob("*.py"):
-            arcname = str(py_file)
-            wf.write(str(py_file), arcname=arcname)
+    if not package_dir.exists():
+        return
+
+    manifest_path = Path("MANIFEST.in")
+    has_manifest = manifest_path.exists()
+
+    if has_manifest:
+        # Use MANIFEST.in patterns
+        commands = _parse_manifest(manifest_path)
+        _add_files_from_manifest(wf, package_dir, commands)
+    else:
+        # Default: include all package data, exclude cache/build artifacts
+        _add_all_package_files(wf, package_dir)
+
+
+def _add_files_from_manifest(
+    wf: WheelFile, package_dir: Path, commands: dict[str, list[str]]
+) -> None:
+    """Add files to wheel based on MANIFEST.in commands.
+
+    Args:
+        wf: WheelFile object to write to
+        package_dir: Package directory path
+        commands: Parsed MANIFEST.in commands
+    """
+    # Track explicitly included/excluded files
+    included_files: set[Path] = set()
+    excluded_files: set[Path] = set()
+
+    # Process commands in order (important for precedence)
+    # Start with all .py files implicitly included (standard Python behavior)
+    for py_file in package_dir.rglob("*.py"):
+        included_files.add(py_file)
+
+    # Process include patterns
+    for pattern in commands["include"]:
+        for file_path in package_dir.glob(pattern):
+            if file_path.is_file():
+                included_files.add(file_path)
+
+    # Process recursive-include patterns (recursive-include dir patterns...)
+    i = 0
+    while i < len(commands["recursive-include"]):
+        if i + 1 >= len(commands["recursive-include"]):
+            break
+        dir_pattern = commands["recursive-include"][i]
+        file_patterns = commands["recursive-include"][i + 1]
+        # Split multiple patterns (can be space-separated on same line)
+        patterns = file_patterns.split()
+        for dir_path in package_dir.glob(dir_pattern):
+            if dir_path.is_dir():
+                for file_path in dir_path.rglob("*"):
+                    if file_path.is_file() and any(fnmatch(file_path.name, p) for p in patterns):
+                        included_files.add(file_path)
+        i += 2
+
+    # Process global-include patterns
+    for pattern in commands["global-include"]:
+        for file_path in package_dir.rglob(pattern.split("/")[-1]):
+            if file_path.is_file():
+                included_files.add(file_path)
+
+    # Process exclude patterns
+    for pattern in commands["exclude"]:
+        for file_path in package_dir.glob(pattern):
+            if file_path.is_file():
+                excluded_files.add(file_path)
+
+    # Process recursive-exclude patterns
+    i = 0
+    while i < len(commands["recursive-exclude"]):
+        if i + 1 >= len(commands["recursive-exclude"]):
+            break
+        dir_pattern = commands["recursive-exclude"][i]
+        file_patterns = commands["recursive-exclude"][i + 1]
+        patterns = file_patterns.split()
+        for dir_path in package_dir.glob(dir_pattern):
+            if dir_path.is_dir():
+                for file_path in dir_path.rglob("*"):
+                    if file_path.is_file() and any(fnmatch(file_path.name, p) for p in patterns):
+                        excluded_files.add(file_path)
+        i += 2
+
+    # Process global-exclude patterns
+    for pattern in commands["global-exclude"]:
+        for file_path in package_dir.rglob("*"):
+            if file_path.is_file() and fnmatch(file_path.name, pattern):
+                excluded_files.add(file_path)
+
+    # Write files that are included but not excluded
+    for file_path in included_files - excluded_files:
+        # Use full path for arcname (e.g., "mypackage/config.json")
+        arcname = str(file_path)
+        wf.write(str(file_path), arcname=arcname)
+
+
+def _add_all_package_files(wf: WheelFile, package_dir: Path) -> None:
+    """Add all package files to wheel, excluding cache/build artifacts.
+
+    This is the default behavior when no MANIFEST.in is present.
+
+    Args:
+        wf: WheelFile object to write to
+        package_dir: Package directory path
+    """
+    # Directories to always exclude
+    exclude_dirs = {
+        "__pycache__",
+        ".pytest_cache",
+        ".mypy_cache",
+        ".ruff_cache",
+        ".hypothesis",
+        ".stestr",
+        ".coverage",
+        "test_results",
+        ".tox",
+        ".eggs",
+        "*.egg-info",
+        "dist",
+        "build",
+        ".git",
+        ".hg",
+        ".svn",
+        ".bzr",
+        ".vscode",
+        ".idea",
+        "node_modules",
+        "tests",
+        "test",
+    }
+
+    # File patterns to always exclude
+    exclude_patterns = {
+        "*.pyc",
+        "*.pyo",
+        "*.pyd",  # Compiled extensions (added separately)
+        "*.so",  # Compiled extensions (added separately)
+        "*.dll",
+        "*.dylib",
+        "*.exe",
+        "*.bat",
+        ".DS_Store",
+        "*.swp",
+        "*.swo",
+        "*~",
+        "*.log",
+        ".coverage",
+        ".pytest_cache",
+        "coverage.xml",
+        "*.cover",
+        ".tox.ini",
+        " tox.ini",
+        "MANIFEST",  # Don't include MANIFEST itself
+    }
+
+    for file_path in package_dir.rglob("*"):
+        if not file_path.is_file():
+            continue
+
+        # Check if file is in an excluded directory
+        if any(excluded in file_path.parts for excluded in exclude_dirs):
+            continue
+
+        # Check if file matches an excluded pattern
+        if any(fnmatch(file_path.name, pattern) for pattern in exclude_patterns):
+            continue
+
+        # Exclude compiled extensions (they're added separately)
+        if file_path.suffix in [".pyd", ".so", ".dll", ".dylib"]:
+            continue
+
+        # Use full path for arcname (e.g., "mypackage/config.json")
+        arcname = str(file_path)
+        wf.write(str(file_path), arcname=arcname)
 
 
 def _add_compiled_extension(

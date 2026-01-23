@@ -215,6 +215,81 @@ proc make_greeting(name: string): string =
 
 **Why `include`?** It includes code at compile time, creating a single compilation unit. `import` creates separate module namespaces which don't work well for shared libraries. All files are compiled into a single `.so`/`.pyd` file.
 
+## Package Data (Config Files, Assets, etc.)
+
+Nuwa automatically includes all non-Python files from your package directory when building wheels. This includes config files, data files, templates, models, and other assets.
+
+### Automatic Inclusion (Default)
+
+By default, all files in your package directory are included in the wheel except:
+
+- Python cache (`__pycache__`, `*.pyc`, `*.pyo`)
+- Compiled extensions (`.so`, `.pyd`, `.dll` - added separately)
+- Version control (`.git`, `.hg`, `.svn`)
+- Build artifacts (`dist/`, `build/`, `*.egg-info`)
+- Development caches (`.pytest_cache`, `.mypy_cache`, `.ruff_cache`)
+- IDE files (`.vscode`, `.idea`, `.DS_Store`)
+- Test directories (`tests/`, `test/`)
+
+**Example:**
+```
+my_package/
+├── __init__.py       # ✅ Included
+├── config.json       # ✅ Included (config file)
+├── data.csv          # ✅ Included (data file)
+├── model.bin         # ✅ Included (binary asset)
+└── templates/
+    └── page.html     # ✅ Included (template)
+```
+
+### Fine-Grained Control with MANIFEST.in
+
+For precise control over package data, create a `MANIFEST.in` file in your project root:
+
+```
+include package/config.json
+recursive-include package/templates *.html *.css *.js
+global-include *.md
+exclude package/dev_config.yaml
+recursive-exclude package/tests *.py
+```
+
+**Supported commands:**
+
+- `include pattern ...` - Include files matching patterns
+- `exclude pattern ...` - Exclude files matching patterns
+- `recursive-include dir pattern ...` - Include files in directory matching patterns
+- `recursive-exclude dir pattern ...` - Exclude files in directory matching patterns
+- `global-include pattern ...` - Include files anywhere matching patterns
+- `global-exclude pattern ...` - Exclude files anywhere matching patterns
+
+**Common patterns:**
+
+```bash
+# Include specific config file
+include package/production.json
+
+# Exclude development configs
+exclude package/*-dev.yaml
+exclude package/config.local.*
+
+# Include all templates
+recursive-include package/templates *
+
+# Include but exclude test data
+recursive-include package/data *.csv
+recursive-exclude package/data test-*.csv
+
+# Include documentation
+global-include *.md
+global-include LICENSE
+```
+
+**When helping users:**
+- Most projects don't need MANIFEST.in - the default behavior works well
+- Recommend MANIFEST.in only when users need to exclude specific files or have complex packaging requirements
+- This matches standard Python packaging behavior (setuptools, flit, etc.)
+
 ## Build Backend (PEP 517)
 
 Nuwa can be used as a build backend in `pyproject.toml`:
