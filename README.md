@@ -88,7 +88,7 @@ pytest
 
 ### 🤖 AI-Assisted Development
 
-This project includes a `skill.md` file designed to teach AI coding agents (Cursor, Antigravity, Copilot, etc.) how to work with Nuwa Build.
+This project includes a `skill.md` file designed to teach AI coding agents (Claude Code, Antigravity, Copilot, etc.) how to work with Nuwa Build.
 
 **Why use it?**
 
