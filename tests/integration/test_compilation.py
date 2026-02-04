@@ -287,6 +287,44 @@ class TestWheelMetadata:
         # The simple fixture uses plain nimpy, so no .pyi file is generated.
         # This test verifies the build system works correctly with the new file-based approach.
 
+    def test_wheel_metadata_contains_dependencies(self, tmp_path):
+        """Test that dependencies from pyproject.toml are written to METADATA."""
+        import zipfile
+
+        fixture_path = Path(__file__).parent.parent / "fixtures" / "projects" / "simple"
+        import shutil
+
+        project_path = tmp_path / "deps_test"
+        shutil.copytree(fixture_path, project_path)
+
+        # Add dependencies to pyproject.toml
+        pyproject_path = project_path / "pyproject.toml"
+        pyproject_content = pyproject_path.read_text()
+        pyproject_content = pyproject_content.replace(
+            '[project]\nname = "simple-test"\nversion = "0.1.0"\n',
+            '[project]\nname = "simple-test"\nversion = "0.1.0"\ndependencies = ["numpy >= 1.20", "pandas >= 2.0"]\noptional-dependencies = { test = ["pytest"] }\n',
+        )
+        pyproject_path.write_text(pyproject_content)
+
+        os.chdir(project_path)
+        wheel_dir = tmp_path / "wheels_deps"
+        wheel_dir.mkdir()
+        wheel_filename = build_wheel(str(wheel_dir))
+        wheel_path = Path(wheel_dir) / wheel_filename
+
+        # Read METADATA from wheel
+        with zipfile.ZipFile(wheel_path, "r") as whl:
+            metadata_files = [f for f in whl.namelist() if "METADATA" in f]
+            assert len(metadata_files) == 1, "Should have exactly one METADATA file"
+            metadata_content = whl.read(metadata_files[0]).decode()
+
+        # Verify dependencies are present
+        assert "Requires-Dist: numpy >= 1.20" in metadata_content
+        assert "Requires-Dist: pandas >= 2.0" in metadata_content
+        # Verify optional dependencies
+        assert "Provides-Extra: test" in metadata_content
+        assert "Requires-Dist: pytest ; extra == 'test'" in metadata_content
+
 
 @pytest.mark.integration
 @pytest.mark.usefixtures("requires_nim")

@@ -7,13 +7,71 @@ and source distributions from Nim extensions.
 import shutil
 from fnmatch import fnmatch
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from wheel.wheelfile import WheelFile
 
 from .backend import _compile_nim, _extract_metadata
-from .config import parse_nuwa_config
+from .config import load_pyproject_toml, parse_nuwa_config
 from .utils import get_platform_extension, get_wheel_tags, normalize_package_name
+
+
+def _get_project_metadata() -> dict[str, Any]:
+    """Extract project metadata from pyproject.toml.
+
+    Returns:
+        Dictionary containing dependencies and optional dependencies
+
+    Returns empty dict if pyproject.toml not found or [project] section missing.
+    """
+    pyproject = load_pyproject_toml()
+    if not pyproject:
+        return {}
+
+    project = pyproject.get("project", {})
+    return {
+        "dependencies": project.get("dependencies", []),
+        "optional_dependencies": project.get("optional-dependencies", {}),
+    }
+
+
+def _format_metadata_entries(
+    name: str, version: str, dependencies: list[str], optional_dependencies: dict[str, list[str]]
+) -> str:
+    """Format METADATA file content with dependencies.
+
+    Args:
+        name: Package name
+        version: Package version
+        dependencies: List of dependency strings (e.g., ["numpy >= 1.20"])
+        optional_dependencies: Dict of extras to dependency lists
+
+    Returns:
+        Formatted METADATA content string
+    """
+    lines = [
+        "Metadata-Version: 2.1",
+        f"Name: {name}",
+        f"Version: {version}",
+    ]
+
+    # Add Requires-Dist for each dependency
+    for dep in dependencies:
+        lines.append(f"Requires-Dist: {dep}")
+
+    # Add optional dependencies (extras)
+    for extra_name, deps in optional_dependencies.items():
+        lines.append(f"Provides-Extra: {extra_name}")
+        for dep in deps:
+            # Mark which extra this dependency belongs to
+            if ";" in dep:
+                # Already has environment markers - append our extra condition
+                lines.append(f"Requires-Dist: {dep} and extra == '{extra_name}'")
+            else:
+                # No environment markers - add extra condition
+                lines.append(f"Requires-Dist: {dep} ; extra == '{extra_name}'")
+
+    return "\n".join(lines) + "\n"
 
 
 def write_wheel_metadata(wf: WheelFile, name: str, version: str, tag: str = "py3-none-any") -> str:
@@ -37,10 +95,16 @@ def write_wheel_metadata(wf: WheelFile, name: str, version: str, tag: str = "py3
         f"{dist_info}/WHEEL",
         f"Wheel-Version: 1.0\nGenerator: nuwa\nRoot-Is-Purelib: false\nTag: {tag}\n",
     )
-    wf.writestr(
-        f"{dist_info}/METADATA",
-        f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n",
+
+    # Get project dependencies
+    project_meta = _get_project_metadata()
+    metadata_content = _format_metadata_entries(
+        name=name,
+        version=version,
+        dependencies=project_meta.get("dependencies", []),
+        optional_dependencies=project_meta.get("optional_dependencies", {}),
     )
+    wf.writestr(f"{dist_info}/METADATA", metadata_content)
 
     return dist_info
 
@@ -337,7 +401,14 @@ def _add_wheel_metadata(
     )
     wf.writestr(f"{dist_info}/WHEEL", wheel_content)
 
-    metadata_content = f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n"
+    # Get project dependencies
+    project_meta = _get_project_metadata()
+    metadata_content = _format_metadata_entries(
+        name=name,
+        version=version,
+        dependencies=project_meta.get("dependencies", []),
+        optional_dependencies=project_meta.get("optional_dependencies", {}),
+    )
     wf.writestr(f"{dist_info}/METADATA", metadata_content)
 
 

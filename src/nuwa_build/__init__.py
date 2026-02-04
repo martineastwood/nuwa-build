@@ -1,6 +1,6 @@
 """Nuwa Build - The Maturin for Nim."""
 
-__version__ = "0.3.6"
+__version__ = "0.3.7"
 
 from .pep517_hooks import (
     build_editable,
