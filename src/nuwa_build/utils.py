@@ -285,6 +285,32 @@ def copy_mingw_runtime_dlls(target_dir: Path) -> list[Path]:
             ]
         )
 
+    # Add common MSYS2/MinGW install locations (GitHub Actions Windows runners)
+    system_drive = os.environ.get("SYSTEMDRIVE", "C:")
+    candidate_dirs.extend(
+        [
+            Path(system_drive) / "msys64" / "mingw64" / "bin",
+            Path(system_drive) / "msys64" / "mingw32" / "bin",
+            Path(system_drive) / "mingw64" / "bin",
+            Path(system_drive) / "mingw32" / "bin",
+            Path(system_drive) / "tools" / "mingw64" / "bin",
+            Path(system_drive) / "tools" / "mingw32" / "bin",
+        ]
+    )
+
+    # Environment-provided roots (when MSYS2 is installed elsewhere)
+    for env_var in ("MSYS2_ROOT", "MSYS2", "MSYS64", "MINGW_PREFIX"):
+        env_path = os.environ.get(env_var)
+        if env_path:
+            base = Path(env_path).resolve()
+            candidate_dirs.extend(
+                [
+                    base / "mingw64" / "bin",
+                    base / "mingw32" / "bin",
+                    base / "bin",
+                ]
+            )
+
     copied_dlls = []
     copied_names = set()
 
