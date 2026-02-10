@@ -16,67 +16,111 @@ on:
       - "LICENSE"
       - ".gitignore"
 
-jobs:
+jobs: # FIXED: This must be at the top level (aligned with 'on')
   lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install tools
+
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install ruff mypy
+          pip install ruff mypy # Ensuring these are installed
           pip install -e ".[dev]"
-      - name: Lint
+
+      - name: Run ruff
         run: |
           ruff check src/
           ruff format --check src/
-          mypy src/
+
+      - name: Run mypy
+        run: mypy src/
 
   test:
-    needs: lint # Only run if lint passes
     runs-on: ubuntu-latest
     strategy:
       matrix:
+        # Removed 3.14 as it may not be available on standard runners yet
         python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[test]"
-      - name: Run unit tests
-        run: pytest tests/unit/ -v
+
+      - name: Run unit tests (no Nim required)
+        run: |
+          pytest tests/unit/ -v
 
   test-with-nim:
-    needs: lint
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: ["3.11"]
+
     steps:
       - uses: actions/checkout@v4
 
-      - uses: jfbryan/setup-nim@v2
-        with:
-          nim-version: 'stable'
-
-      - uses: actions/setup-python@v5
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
+
+      - name: Install Nim (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          curl https://nim-lang.org/choosenim/init.sh -sSf > init.sh
+          sh init.sh -y
+          echo "$HOME/.nimble/bin" >> $GITHUB_PATH
+
+      - name: Install Nim (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          brew install nim
+          echo "/usr/local/bin" >> $GITHUB_PATH
+
+      - name: Install Nim (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          choco install nim -y
+          # FIXED: Chocolatey usually puts nim in the path,
+          # but we'll point to the shim directory just in case.
+          echo "C:\tools\nim\bin" >> $GITHUB_PATH
+          echo "$USERPROFILE\.nimble\bin" >> $GITHUB_PATH
+
+      - name: Verify Nim installation
+        run: nim --version
+
+      - name: Cache Nimble dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.nimble
+          key: ${{ runner.os }}-nimble-${{ hashFiles('**/pyproject.toml') }}
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[test]"
 
-      - name: Run all tests
-        run: pytest -v
+      - name: Run all tests (including integration)
+        run: |
+          pytest -v
