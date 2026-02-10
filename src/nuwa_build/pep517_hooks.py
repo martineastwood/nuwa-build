@@ -346,6 +346,8 @@ def _add_compiled_extension(
 ) -> None:
     """Add compiled extension to the wheel.
 
+    On Windows, also includes any DLL dependencies generated during compilation.
+
     Args:
         wf: WheelFile object to write to
         so_file: Path to compiled extension file (platform-specific extension)
@@ -356,6 +358,13 @@ def _add_compiled_extension(
     arcname = f"{name_normalized}/{lib_name}{ext}"
     # Write with proper permissions for shared library
     wf.write(str(so_file), arcname=arcname)
+
+    # On Windows, also bundle any DLL files generated alongside the .pyd
+    # These are runtime dependencies that the .pyd needs to load
+    if so_file.suffix == ".pyd":
+        for dll_file in so_file.parent.glob("*.dll"):
+            dll_arcname = f"{name_normalized}/{dll_file.name}"
+            wf.write(str(dll_file), arcname=dll_arcname)
 
 
 def _add_type_stubs(
@@ -427,6 +436,13 @@ def _cleanup_build_artifacts(so_file: Path, lib_name: str) -> None:
     pyi_file = so_file.parent / f"{lib_name}.pyi"
     if pyi_file.exists():
         pyi_file.unlink()
+
+    # On Windows, also clean up any DLL files generated during compilation
+    # (these have already been bundled into the wheel at this point)
+    if so_file.suffix == ".pyd":
+        for dll_file in so_file.parent.glob("*.dll"):
+            if dll_file.exists():
+                dll_file.unlink()
 
 
 # --- PEP 517 Hooks ---
