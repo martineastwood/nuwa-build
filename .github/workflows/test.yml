@@ -108,13 +108,6 @@ jobs: # FIXED: This must be at the top level (aligned with 'on')
       - name: Verify Nim installation
         run: nim --version
 
-      - name: Locate MinGW runtime DLLs (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          Get-ChildItem -Path C:\ -Recurse -ErrorAction SilentlyContinue `
-            -Filter "libgcc_s_seh-1.dll" | Select-Object -First 5 | ForEach-Object { $_.FullName }
-
       - name: Cache Nimble dependencies
         uses: actions/cache@v4
         with:
