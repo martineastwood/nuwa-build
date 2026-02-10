@@ -3,12 +3,12 @@ requires = ["nuwa-build"]
 build-backend = "nuwa_build"
 
 [project]
-name = "simple-test"
+name = "nuwa-sdk-test"
 version = "0.1.0"
 
 [tool.nuwa]
 nim-source = "nim"
-module-name = "simple_test"
-lib-name = "simple_test_lib"
-entry-point = "simple_test_lib.nim"
+module-name = "nuwa_sdk_test"
+lib-name = "nuwa_sdk_test_lib"
+entry-point = "nuwa_sdk_test_lib.nim"
 nimble-deps = ["nimpy", "nuwa_sdk"]

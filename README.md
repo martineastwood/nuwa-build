@@ -132,7 +132,7 @@ Nuwa-Build includes a Jupyter magic command for compiling Nim code directly in n
 
 # Compile Nim code in a cell
 %%nuwa
-proc add(a, b: int): int {.exportpy.} =
+proc add(a, b: int): int {.nuwa_export.} =
     return a + b
 
 # Use the function immediately (no import needed!)
@@ -176,7 +176,7 @@ Pass Nim compiler flags on the magic line:
 
 ```python
 %%nuwa -d:release --opt:speed
-proc optimized_func(n: int): int {.exportpy.} =
+proc optimized_func(n: int): int {.nuwa_export.} =
     # Optimized implementation
     ...
 ```
@@ -191,7 +191,7 @@ Different flags create different cache entries (code hash includes flags).
 
 # Cell 2: Compile simple function
 %%nuwa
-proc greet(name: string): string {.exportpy.} =
+proc greet(name: string): string {.nuwa_export.} =
     return "Hello, " & name & "!"
 
 # Cell 3: Use immediately
@@ -199,15 +199,15 @@ print(greet("World"))  # Output: Hello, World!
 
 # Cell 4: Multiple functions
 %%nuwa
-proc add(a, b: int): int {.exportpy.} = a + b
-proc multiply(a, b: int): int {.exportpy.} = a * b
+proc add(a, b: int): int {.nuwa_export.} = a + b
+proc multiply(a, b: int): int {.nuwa_export.} = a * b
 
 print(add(5, 3))      # 8
 print(multiply(4, 7)) # 28
 
 # Cell 5: With compiler flags
 %%nuwa -d:release
-proc fibonacci(n: int): int {.exportpy.} =
+proc fibonacci(n: int): int {.nuwa_export.} =
     if n <= 1:
         return n
     return fibonacci(n-1) + fibonacci(n-2)

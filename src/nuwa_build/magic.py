@@ -167,7 +167,7 @@ entry-point = "{module_name}_lib.nim"
         )
 
     def _extract_exported_functions(self, module) -> dict:
-        """Extract functions exported via {.exportpy.} pragma.
+        """Extract functions exported via {.nuwa_export.} pragma.
 
         Args:
             module: Compiled Python module
@@ -234,7 +234,7 @@ entry-point = "{module_name}_lib.nim"
 
         Usage:
             %%nuwa [-d:release] [--opt:speed]
-            proc add(a, b: int): int {.exportpy.} =
+            proc add(a, b: int): int {.nuwa_export.} =
               return a + b
 
         Args:

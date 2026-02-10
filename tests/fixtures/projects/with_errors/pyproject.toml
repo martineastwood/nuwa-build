@@ -10,5 +10,5 @@ version = "0.1.0"
 nim-source = "nim"
 module-name = "with_errors"
 lib-name = "with_errors_lib"
-entry-point = "lib.nim"
+entry-point = "with_errors_lib.nim"
 nimble-deps = ["nimpy", "nuwa_sdk"]

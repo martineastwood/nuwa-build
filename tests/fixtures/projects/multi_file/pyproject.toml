@@ -10,5 +10,5 @@ version = "0.1.0"
 nim-source = "nim"
 module-name = "multi_file_test"
 lib-name = "multi_file_test_lib"
-entry-point = "lib.nim"
+entry-point = "multi_file_test_lib.nim"
 nimble-deps = ["nimpy", "nuwa_sdk"]

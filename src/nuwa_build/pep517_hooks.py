@@ -372,7 +372,9 @@ def _add_type_stubs(
         name_normalized: Normalized package name
         lib_name: Library name
     """
-    pyi_file = so_file.with_suffix(".pyi")
+    # The stub file is named {lib_name}.pyi (without platform-specific tags)
+    # so we need to construct the path manually instead of using with_suffix()
+    pyi_file = so_file.parent / f"{lib_name}.pyi"
     if pyi_file.exists():
         arcname = f"{name_normalized}/{lib_name}.pyi"
         wf.write(str(pyi_file), arcname=arcname)
@@ -412,15 +414,17 @@ def _add_wheel_metadata(
     wf.writestr(f"{dist_info}/METADATA", metadata_content)
 
 
-def _cleanup_build_artifacts(so_file: Path) -> None:
+def _cleanup_build_artifacts(so_file: Path, lib_name: str) -> None:
     """Clean up temporary build artifacts.
 
     Args:
         so_file: Path to compiled extension
+        lib_name: Library name (for finding stub file)
     """
     if so_file.exists():
         so_file.unlink()
-    pyi_file = so_file.with_suffix(".pyi")
+    # The stub file is named {lib_name}.pyi (without platform-specific tags)
+    pyi_file = so_file.parent / f"{lib_name}.pyi"
     if pyi_file.exists():
         pyi_file.unlink()
 
@@ -485,7 +489,7 @@ def build_wheel(
         _add_wheel_metadata(wf, name, version, wheel_tag, name_normalized)
 
     # Cleanup
-    _cleanup_build_artifacts(so_file)
+    _cleanup_build_artifacts(so_file, lib_name)
 
     return wheel_path.name
 
