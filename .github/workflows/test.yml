@@ -95,25 +95,30 @@ jobs: # FIXED: This must be at the top level (aligned with 'on')
         shell: bash
         run: |
           brew install nim
-          echo "/usr/local/bin" >> $GITHUB_PATH
+          echo "$HOME/.nimble/bin" >> $GITHUB_PATH
 
       - name: Install Nim (Windows)
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          choco install nim -y
-          # FIXED: Chocolatey usually puts nim in the path,
-          # but we'll point to the shim directory just in case.
-          echo "C:\tools\nim\bin" >> $GITHUB_PATH
-          echo "$USERPROFILE\.nimble\bin" >> $GITHUB_PATH
+          choco install nim --version 2.0.0 -y
+          echo "C:\tools\Nim\nim-2.0.0\bin" >> $GITHUB_PATH
+          echo "C:\Users\runneradmin\.nimble\bin" >> $GITHUB_PATH
 
       - name: Verify Nim installation
         run: nim --version
 
+      - name: Locate MinGW runtime DLLs (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path C:\ -Recurse -ErrorAction SilentlyContinue `
+            -Filter "libgcc_s_seh-1.dll" | Select-Object -First 5 | ForEach-Object { $_.FullName }
+
       - name: Cache Nimble dependencies
         uses: actions/cache@v4
         with:
-          path: ~/.nimble
+          path: .nimble
           key: ${{ runner.os }}-nimble-${{ hashFiles('**/pyproject.toml') }}
 
       - name: Install dependencies
