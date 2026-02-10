@@ -262,14 +262,59 @@ def copy_mingw_runtime_dlls(target_dir: Path) -> list[Path]:
 
     nim_bin = Path(nim_path).parent.resolve()
 
+    # Common MinGW locations in Nim distributions
+    candidate_dirs = [
+        nim_bin,
+        nim_bin.parent / "dist" / "mingw64" / "bin",
+        nim_bin.parent / "dist" / "mingw32" / "bin",
+        nim_bin.parent / "mingw64" / "bin",
+        nim_bin.parent / "mingw32" / "bin",
+    ]
+
+    # Also consider NIM_DIR if set
+    nim_dir_env = os.environ.get("NIM_DIR")
+    if nim_dir_env:
+        nim_dir = Path(nim_dir_env).resolve()
+        candidate_dirs.extend(
+            [
+                nim_dir / "bin",
+                nim_dir / "dist" / "mingw64" / "bin",
+                nim_dir / "dist" / "mingw32" / "bin",
+                nim_dir / "mingw64" / "bin",
+                nim_dir / "mingw32" / "bin",
+            ]
+        )
+
     copied_dlls = []
+    copied_names = set()
+
     for dll_name in dll_names:
-        dll_path = nim_bin / dll_name
-        if dll_path.exists():
-            target = target_dir / dll_name
-            shutil.copy2(dll_path, target)
-            copied_dlls.append(target)
-            print(f"  Bundling MinGW runtime: {dll_name}")
+        # First try PATH lookup (covers custom toolchains on Windows)
+        dll_path_str = shutil.which(dll_name)
+        if dll_path_str:
+            dll_path = Path(dll_path_str)
+            if dll_path.exists():
+                target = target_dir / dll_name
+                shutil.copy2(dll_path, target)
+                copied_dlls.append(target)
+                copied_names.add(dll_name)
+                print(f"  Bundling MinGW runtime: {dll_name}")
+                continue
+
+        # Fall back to well-known Nim/MinGW locations
+        for base in candidate_dirs:
+            dll_path = base / dll_name
+            if dll_path.exists():
+                target = target_dir / dll_name
+                shutil.copy2(dll_path, target)
+                copied_dlls.append(target)
+                copied_names.add(dll_name)
+                print(f"  Bundling MinGW runtime: {dll_name}")
+                break
+
+    if not copied_dlls:
+        searched = ", ".join(str(p) for p in candidate_dirs)
+        print(f"  No MinGW runtime DLLs found in: {searched}")
 
     return copied_dlls
 
