@@ -231,6 +231,49 @@ def install_nimble_dependencies(deps: list, local_dir: Optional[Path] = None) ->
     print("✓ Nimble dependencies ready")
 
 
+def copy_mingw_runtime_dlls(target_dir: Path) -> list[Path]:
+    """Copy MinGW runtime DLLs required by Nim on Windows.
+
+    On Windows, Nim-compiled Python extensions depend on MinGW runtime DLLs
+    (libgcc_s_seh-1.dll, libstdc++-6.dll, libwinpthread-1.dll). This function
+    finds these DLLs in Nim's installation directory and copies them to the
+    target directory so they can be bundled with the wheel.
+
+    Args:
+        target_dir: Directory to copy DLLs to
+
+    Returns:
+        List of copied DLL file paths
+    """
+    if sys.platform != "win32":
+        return []
+
+    # Names of DLLs that might be required
+    dll_names = [  # type: ignore[unreachable]  # Platform-specific code, reachable on Windows
+        "libgcc_s_seh-1.dll",  # GCC runtime
+        "libstdc++-6.dll",  # C++ standard library
+        "libwinpthread-1.dll",  # POSIX threading API for Windows
+    ]
+
+    # Try to find Nim's bin directory
+    nim_path = shutil.which("nim")
+    if not nim_path:
+        return []
+
+    nim_bin = Path(nim_path).parent.resolve()
+
+    copied_dlls = []
+    for dll_name in dll_names:
+        dll_path = nim_bin / dll_name
+        if dll_path.exists():
+            target = target_dir / dll_name
+            shutil.copy2(dll_path, target)
+            copied_dlls.append(target)
+            print(f"  Bundling MinGW runtime: {dll_name}")
+
+    return copied_dlls
+
+
 # ====================
 # Validation Functions
 # ====================

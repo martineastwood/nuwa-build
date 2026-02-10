@@ -13,7 +13,12 @@ from wheel.wheelfile import WheelFile
 
 from .backend import _compile_nim, _extract_metadata
 from .config import load_pyproject_toml, parse_nuwa_config
-from .utils import get_platform_extension, get_wheel_tags, normalize_package_name
+from .utils import (
+    copy_mingw_runtime_dlls,
+    get_platform_extension,
+    get_wheel_tags,
+    normalize_package_name,
+)
 
 
 def _get_project_metadata() -> dict[str, Any]:
@@ -362,9 +367,14 @@ def _add_compiled_extension(
     # On Windows, also bundle any DLL files generated alongside the .pyd
     # These are runtime dependencies that the .pyd needs to load
     if so_file.suffix == ".pyd":
-        for dll_file in so_file.parent.glob("*.dll"):
-            dll_arcname = f"{name_normalized}/{dll_file.name}"
-            wf.write(str(dll_file), arcname=dll_arcname)
+        dlls_found = list(so_file.parent.glob("*.dll"))
+        if dlls_found:
+            for dll_file in dlls_found:
+                dll_arcname = f"{name_normalized}/{dll_file.name}"
+                wf.write(str(dll_file), arcname=dll_arcname)
+                print(f"  Bundling DLL: {dll_file.name} -> {dll_arcname}")
+        else:
+            print(f"  No DLL files found alongside {so_file.name}")
 
 
 def _add_type_stubs(
@@ -475,6 +485,11 @@ def build_wheel(
         config_overrides = config_settings["config_overrides"]
 
     so_file = _compile_nim(build_type="release", inplace=False, config_overrides=config_overrides)
+
+    # On Windows, copy MinGW runtime DLLs to the same directory as the .pyd
+    # These DLLs will be bundled with the wheel
+    if so_file.suffix == ".pyd":
+        copy_mingw_runtime_dlls(so_file.parent)
 
     # Extract metadata
     name, version = _extract_metadata()
