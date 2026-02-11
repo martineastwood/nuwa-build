@@ -11,18 +11,24 @@ git clone https://github.com/martineastwood/nuwa-build.git
 cd nuwa-build
 ```
 
-### 2. Install Development Dependencies
+### 2. Create and Activate Virtual Environment
 
 ```bash
-# Install nuwa-build in development mode with dev tools
-pip install -e ".[dev]"
+# Create virtual environment
+python -m venv venv
+
+# Activate it (macOS/Linux)
+source venv/bin/activate
+
+# Activate it (Windows)
+venv\Scripts\activate
+
+# Install in development mode with dev tools
+pip install -e ".[dev,test]"
 
 # Install Nim compiler
 # Visit https://nim-lang.org/install.html
-# Or use: choosenim install 0.1.0 / choosenim 2.0.0
-
-# Install nimpy
-nimble install nimpy
+# Or use: choosenim install stable
 ```
 
 ### 3. Install Pre-commit Hooks (Optional but Recommended)
@@ -53,29 +59,63 @@ git checkout -b fix/your-bug-fix
 
 ```bash
 # Format code
-ruff format src/
+ruff format .
 
 # Lint code
-ruff check src/
+ruff check .
 
 # Type check
 mypy src/
 
-# Run tests
+# Run all tests
+pytest -v
+
+# Run only unit tests (fast, no Nim needed)
 pytest tests/unit/ -v
 
-# Run integration tests (requires Nim)
-pytest tests/integration/ -v
+# Run only integration tests (requires Nim)
+pytest -m integration -v
+
+# Run tests with coverage
+pytest --cov=src/nuwa_build --cov-report=html
 ```
 
-### 4. Commit Changes
+### 4. Test Build Locally
+
+```bash
+# Compile in-place (debug build)
+nuwa develop
+
+# Compile in-place (release build)
+nuwa develop -r
+# or
+nuwa develop --release
+
+# Compile with custom build profile
+nuwa develop --profile dev
+
+# Build a distribution wheel
+nuwa build
+
+# Watch mode for development
+nuwa watch
+nuwa watch --run-tests  # Rebuild and run tests
+nuwa watch --profile bench  # Use custom build profile
+
+# Clean build artifacts
+nuwa clean              # Clean dependencies + artifacts
+nuwa clean --artifacts  # Clean only build artifacts
+nuwa clean --deps       # Clean only .nimble/ dependencies
+```
+
+### 5. Commit Changes
 
 ```bash
 git add .
 git commit -m "Brief description of changes"
 ```
 
-### 5. Push and Create Pull Request
+### 6. Push and Create Pull Request
 
 ```bash
 git push origin feature/your-feature-name
@@ -87,7 +127,7 @@ Then create a pull request on GitHub.
 
 Use automated tools to maintain consistent code style:
 
-- **Ruff** - Linting and formatting (run `ruff check src/` and `ruff format src/`)
+- **Ruff** - Linting and formatting (run `ruff check .` and `ruff format .`)
 - **MyPy** - Type checking (run `mypy src/`)
 - **Pre-commit hooks** - Automatically run on commits (optional)
 
@@ -149,7 +189,7 @@ def test_parse_nim_error():
 
 ### Integration Tests
 
-Integration tests require Nim and should test the full compilation workflow:
+Integration tests require Nim and should test the full compilation workflow. Use the `@pytest.mark.integration` decorator:
 
 ```python
 @pytest.mark.integration
@@ -163,35 +203,94 @@ def test_build_simple_project(tmp_path, requires_nim):
 ### Running Tests
 
 ```bash
-# Run all unit tests (fast, no Nim needed)
-pytest tests/unit/ -v
-
 # Run all tests
 pytest -v
+
+# Run only unit tests (fast, no Nim needed)
+pytest tests/unit/ -v
+# or
+pytest -m "not integration" -v
+
+# Run only integration tests (requires Nim)
+pytest -m integration -v
+
+# Run specific test file
+pytest tests/unit/test_config.py -v
 
 # Run with coverage
 pytest --cov=src/nuwa_build --cov-report=html
 ```
+
+## Build Profiles
+
+Build profiles allow you to define preset compiler flag configurations in `pyproject.toml`:
+
+```toml
+[tool.nuwa.profiles.dev]
+nim-flags = ["-d:debug", "--debugger:native", "--linenos:on"]
+
+[tool.nuwa.profiles.release]
+nim-flags = ["-d:release", "--opt:speed", "--stacktrace:off"]
+
+[tool.nuwa.profiles.bench]
+nim-flags = ["-d:release", "--opt:speed", "--stacktrace:on"]
+
+[tool.nuwa.profiles.size]
+nim-flags = ["-d:release", "--opt:size"]
+```
+
+Use profiles via CLI:
+```bash
+nuwa develop --profile dev
+nuwa build --profile release
+nuwa watch --profile bench
+```
+
+Profile flags are appended to any base `nim-flags` in the config, and CLI `--nim-flag` arguments are applied last for maximum flexibility.
+
+## Shell Completion
+
+Nuwa supports shell completion for bash, zsh, and fish via the `shtab` library:
+
+```bash
+# Install shtab (dev dependency)
+pip install shtab
+
+# Generate and install completions
+nuwa --print-completion bash > ~/.local/share/bash-completion/completions/nuwa
+nuwa --print-completion zsh > ~/.zfunc/_nuwa
+nuwa --print-completion fish > ~/.config/fish/completions/nuwa.fish
+```
+
+Completions work automatically for all commands, flags, and will suggest files/directories where appropriate.
 
 ## Project Structure
 
 ```
 nuwa-build/
 ├── src/nuwa_build/       # Main package
-│   ├── __init__.py
-│   ├── backend.py        # PEP 517 hooks and compilation
+│   ├── __init__.py       # Exposes PEP 517 build hooks
+│   ├── backend.py        # Legacy backend (most logic moved to pep517_hooks)
 │   ├── cli.py            # Command-line interface
 │   ├── config.py         # Configuration parsing
-│   ├── discovery.py      # Source file discovery
-│   ├── errors.py         # Error formatting
-│   ├── templates.py      # Project templates
+│   ├── discovery.py      # Source file discovery and validation
+│   ├── errors.py         # Error formatting and display
+│   ├── pep517_hooks.py   # PEP 517 build hooks and wheel creation
+│   ├── stubs.py          # Type stub generation
+│   ├── templates.py      # Project template strings
 │   ├── utils.py          # Utility functions
-│   └── wheel_utils.py    # Wheel building helpers
+│   ├── watch.py          # File watching for auto-recompilation
+│   ├── scaffolding.py    # Project scaffolding (nuwa new/init)
+│   ├── cleanup.py        # Build artifact cleanup
+│   ├── magic.py          # Jupyter notebook magic command
+│   └── constants.py      # Compile-time constants
 ├── tests/
 │   ├── unit/             # Fast tests (no Nim needed)
 │   ├── integration/      # Full workflow tests (requires Nim)
-│   └── conftest.py       # Pytest configuration and fixtures
+│   ├── conftest.py       # Pytest configuration and fixtures
+│   └── fixtures/         # Test fixture projects
 ├── .github/workflows/    # CI/CD workflows
+├── venv/                 # Virtual environment (created during setup)
 └── pyproject.toml        # Project configuration
 ```
 

@@ -2,10 +2,6 @@
 
 Build Python extensions with Nim using zero-configuration tooling.
 
-## Status
-
-🚧 **Work In Progress:** This library is currently under active development. APIs may change, and things might break. Use at your own risk!
-
 ## Features
 
 - **Zero Configuration**: Works out of the box with sensible defaults
