@@ -5,6 +5,7 @@ and source distributions from Nim extensions.
 """
 
 import shutil
+from dataclasses import dataclass, field
 from fnmatch import fnmatch
 from pathlib import Path
 from typing import Any, Optional
@@ -12,13 +13,8 @@ from typing import Any, Optional
 from wheel.wheelfile import WheelFile
 
 from .backend import _compile_nim, _extract_metadata
-from .config import load_pyproject_toml, parse_nuwa_config
-from .utils import (
-    copy_mingw_runtime_dlls,
-    get_platform_extension,
-    get_wheel_tags,
-    normalize_package_name,
-)
+from .config import load_pyproject_toml, merge_cli_args, parse_nuwa_config
+from .utils import get_platform_extension, get_wheel_tags, normalize_package_name
 
 
 def _get_project_metadata() -> dict[str, Any]:
@@ -114,7 +110,17 @@ def write_wheel_metadata(wf: WheelFile, name: str, version: str, tag: str = "py3
     return dist_info
 
 
-def _parse_manifest(manifest_path: Path) -> dict[str, list[str]]:
+@dataclass
+class ManifestCommands:
+    include: list[str] = field(default_factory=list)
+    exclude: list[str] = field(default_factory=list)
+    recursive_include: list[tuple[str, list[str]]] = field(default_factory=list)
+    recursive_exclude: list[tuple[str, list[str]]] = field(default_factory=list)
+    global_include: list[str] = field(default_factory=list)
+    global_exclude: list[str] = field(default_factory=list)
+
+
+def _parse_manifest(manifest_path: Path) -> ManifestCommands:
     """Parse MANIFEST.in file into structured commands.
 
     Args:
@@ -125,14 +131,7 @@ def _parse_manifest(manifest_path: Path) -> dict[str, list[str]]:
         Keys: 'include', 'exclude', 'recursive-include', 'recursive-exclude',
               'global-include', 'global-exclude'
     """
-    commands: dict[str, list[str]] = {
-        "include": [],
-        "exclude": [],
-        "recursive-include": [],
-        "recursive-exclude": [],
-        "global-include": [],
-        "global-exclude": [],
-    }
+    commands = ManifestCommands()
 
     if not manifest_path.exists():
         return commands
@@ -149,13 +148,33 @@ def _parse_manifest(manifest_path: Path) -> dict[str, list[str]]:
                 continue
 
             cmd = parts[0]
-            if cmd in commands:
-                commands[cmd].extend(parts[1:])
+            if cmd == "recursive-include":
+                if len(parts) < 3:
+                    continue
+                dir_pattern = parts[1]
+                file_patterns = parts[2:]
+                commands.recursive_include.append((dir_pattern, file_patterns))
+            elif cmd == "recursive-exclude":
+                if len(parts) < 3:
+                    continue
+                dir_pattern = parts[1]
+                file_patterns = parts[2:]
+                commands.recursive_exclude.append((dir_pattern, file_patterns))
+            elif cmd == "include":
+                commands.include.extend(parts[1:])
+            elif cmd == "exclude":
+                commands.exclude.extend(parts[1:])
+            elif cmd == "global-include":
+                commands.global_include.extend(parts[1:])
+            elif cmd == "global-exclude":
+                commands.global_exclude.extend(parts[1:])
 
     return commands
 
 
-def _add_python_package_files(wf: WheelFile, name_normalized: str) -> None:
+def _add_python_package_files(
+    wf: WheelFile, name_normalized: str, allow_manifest_binaries: bool
+) -> None:
     """Add Python package files to the wheel.
 
     Respects MANIFEST.in if present, otherwise includes all package data
@@ -175,14 +194,17 @@ def _add_python_package_files(wf: WheelFile, name_normalized: str) -> None:
     if has_manifest:
         # Use MANIFEST.in patterns
         commands = _parse_manifest(manifest_path)
-        _add_files_from_manifest(wf, package_dir, commands)
+        _add_files_from_manifest(wf, package_dir, commands, allow_manifest_binaries)
     else:
         # Default: include all package data, exclude cache/build artifacts
         _add_all_package_files(wf, package_dir)
 
 
 def _add_files_from_manifest(
-    wf: WheelFile, package_dir: Path, commands: dict[str, list[str]]
+    wf: WheelFile,
+    package_dir: Path,
+    commands: ManifestCommands,
+    allow_manifest_binaries: bool,
 ) -> None:
     """Add files to wheel based on MANIFEST.in commands.
 
@@ -201,62 +223,49 @@ def _add_files_from_manifest(
         included_files.add(py_file)
 
     # Process include patterns
-    for pattern in commands["include"]:
+    for pattern in commands.include:
         for file_path in package_dir.glob(pattern):
             if file_path.is_file():
                 included_files.add(file_path)
 
     # Process recursive-include patterns (recursive-include dir patterns...)
-    i = 0
-    while i < len(commands["recursive-include"]):
-        if i + 1 >= len(commands["recursive-include"]):
-            break
-        dir_pattern = commands["recursive-include"][i]
-        file_patterns = commands["recursive-include"][i + 1]
-        # Split multiple patterns (can be space-separated on same line)
-        patterns = file_patterns.split()
+    for dir_pattern, patterns in commands.recursive_include:
         for dir_path in package_dir.glob(dir_pattern):
             if dir_path.is_dir():
                 for file_path in dir_path.rglob("*"):
                     if file_path.is_file() and any(fnmatch(file_path.name, p) for p in patterns):
                         included_files.add(file_path)
-        i += 2
 
     # Process global-include patterns
-    for pattern in commands["global-include"]:
+    for pattern in commands.global_include:
         for file_path in package_dir.rglob(pattern.split("/")[-1]):
             if file_path.is_file():
                 included_files.add(file_path)
 
     # Process exclude patterns
-    for pattern in commands["exclude"]:
+    for pattern in commands.exclude:
         for file_path in package_dir.glob(pattern):
             if file_path.is_file():
                 excluded_files.add(file_path)
 
     # Process recursive-exclude patterns
-    i = 0
-    while i < len(commands["recursive-exclude"]):
-        if i + 1 >= len(commands["recursive-exclude"]):
-            break
-        dir_pattern = commands["recursive-exclude"][i]
-        file_patterns = commands["recursive-exclude"][i + 1]
-        patterns = file_patterns.split()
+    for dir_pattern, patterns in commands.recursive_exclude:
         for dir_path in package_dir.glob(dir_pattern):
             if dir_path.is_dir():
                 for file_path in dir_path.rglob("*"):
                     if file_path.is_file() and any(fnmatch(file_path.name, p) for p in patterns):
                         excluded_files.add(file_path)
-        i += 2
 
     # Process global-exclude patterns
-    for pattern in commands["global-exclude"]:
+    for pattern in commands.global_exclude:
         for file_path in package_dir.rglob("*"):
             if file_path.is_file() and fnmatch(file_path.name, pattern):
                 excluded_files.add(file_path)
 
     # Write files that are included but not excluded
     for file_path in included_files - excluded_files:
+        if not allow_manifest_binaries and file_path.suffix in [".pyd", ".so", ".dll", ".dylib"]:
+            continue
         # Use full path for arcname (e.g., "mypackage/config.json")
         arcname = str(file_path)
         wf.write(str(file_path), arcname=arcname)
@@ -486,14 +495,16 @@ def build_wheel(
 
     so_file = _compile_nim(build_type="release", inplace=False, config_overrides=config_overrides)
 
-    # On Windows, copy MinGW runtime DLLs to the same directory as the .pyd
-    # These DLLs will be bundled with the wheel
-    if so_file.suffix == ".pyd":
-        copy_mingw_runtime_dlls(so_file.parent)
+    profile = None
+    if config_overrides:
+        profile = config_overrides.pop("profile", None)
+    config = parse_nuwa_config(profile=profile)
+    if config_overrides:
+        config = merge_cli_args(config, config_overrides)
+    allow_manifest_binaries = bool(config.get("allow_manifest_binaries", False))
 
     # Extract metadata
     name, version = _extract_metadata()
-    config = parse_nuwa_config()
     lib_name = config["lib_name"]
     ext = get_platform_extension()
 
@@ -508,7 +519,7 @@ def build_wheel(
     # Use WheelFile for automatic RECORD generation
     with WheelFile(wheel_path, "w") as wf:
         # 1. Add Python package files
-        _add_python_package_files(wf, name_normalized)
+        _add_python_package_files(wf, name_normalized, allow_manifest_binaries)
 
         # 2. Add compiled extension
         _add_compiled_extension(wf, so_file, name_normalized, lib_name, ext)
@@ -569,9 +580,20 @@ def build_editable(
         The wheel filename
     """
 
-    # Compile in-place
-    _compile_nim(build_type="debug", inplace=True)
+    # Convert config_settings to config_overrides format if provided
+    config_overrides = None
+    if config_settings and "config_overrides" in config_settings:
+        config_overrides = config_settings["config_overrides"]
 
+    # Compile in-place
+    _compile_nim(build_type="debug", inplace=True, config_overrides=config_overrides)
+
+    profile = None
+    if config_overrides:
+        profile = config_overrides.pop("profile", None)
+    config = parse_nuwa_config(profile=profile)
+    if config_overrides:
+        config = merge_cli_args(config, config_overrides)
     # Extract metadata
     name, version = _extract_metadata()
 

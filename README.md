@@ -341,6 +341,13 @@ nim-flags = []
 # Nimble dependencies (auto-installed before build)
 nimble-deps = ["nimpy", "cligen >= 1.0.0"]
 
+# Windows packaging safeguards (optional)
+# Statically link MinGW runtimes on Windows (default: true)
+windows-static-linking = true
+
+# Allow MANIFEST.in to include compiled binaries like .pyd/.dll/.so (default: false)
+allow-manifest-binaries = false
+
 # Build profiles (predefined compiler flag sets)
 [tool.nuwa.profiles.dev]
 nim-flags = ["-d:debug", "--debugger:native", "--linenos:on"]
@@ -357,18 +364,24 @@ nim-flags = ["-d:release", "--opt:size"]
 
 ### Configuration Options
 
-| Option            | Type   | Default                   | Description                                                    |
-| ----------------- | ------ | ------------------------- | -------------------------------------------------------------- |
-| `nim-source`      | string | `"nim"`                   | Directory containing Nim source files                          |
-| `module-name`     | string | Derived from project name | Python package name                                            |
-| `lib-name`        | string | `{module_name}_lib`       | Internal compiled extension name                               |
-| `entry-point`     | string | `{lib_name}.nim`          | Main entry point file (relative to `nim-source`)               |
-| `output-location` | string | `"auto"`                  | Where to place compiled extension (`"auto"`, `"src"`, or path) |
-| `nim-flags`       | list   | `[]`                      | Additional compiler flags                                      |
-| `nimble-deps`     | list   | `[]`                      | Nimble packages to auto-install before build                   |
-| `profiles`        | table  | `{}`                      | Predefined build profiles with preset compiler flags           |
+| Option                       | Type    | Default                   | Description                                                    |
+| ---------------------------- | ------- | ------------------------- | -------------------------------------------------------------- |
+| `nim-source`                 | string  | `"nim"`                   | Directory containing Nim source files                          |
+| `module-name`                | string  | Derived from project name | Python package name                                            |
+| `lib-name`                   | string  | `{module_name}_lib`       | Internal compiled extension name                               |
+| `entry-point`                | string  | `{lib_name}.nim`          | Main entry point file (relative to `nim-source`)               |
+| `output-location`            | string  | `"auto"`                  | Where to place compiled extension (`"auto"`, `"src"`, or path) |
+| `nim-flags`                  | list    | `[]`                      | Additional compiler flags                                      |
+| `nimble-deps`                | list    | `[]`                      | Nimble packages to auto-install before build                   |
+| `windows-static-linking`     | boolean | `true`                    | Statically link MinGW runtimes on Windows                      |
+| `allow-manifest-binaries`    | boolean | `false`                   | Allow MANIFEST.in to include compiled binaries                |
+| `profiles`                   | table   | `{}`                      | Predefined build profiles with preset compiler flags           |
 
 **Note**: The entry point filename determines the Python module name of the compiled extension. If your entry point is `my_package_lib.nim`, the module will be importable as `my_package_lib`.
+
+**Windows note**: By default, MinGW runtime libraries are linked statically on Windows, so wheels don’t depend on `libgcc_s_seh-1.dll`, `libstdc++-6.dll`, or `libwinpthread-1.dll`. Set `windows-static-linking = false` only if you intend to manage these dependencies outside the wheel.
+
+**MANIFEST note**: By default, compiled binaries like `.pyd`, `.dll`, `.so`, and `.dylib` are excluded even if listed in `MANIFEST.in`. Set `allow-manifest-binaries = true` to include them explicitly.
 
 ### Build Profiles
 

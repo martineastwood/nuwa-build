@@ -58,6 +58,30 @@ class TestMergeCliArgs:
         assert result["nim_source"] == "src/nim"
         assert result["entry_point"] == "main.nim"
 
+    def test_output_location_override(self, mock_config):
+        """Test that output_location overrides are applied."""
+        cli_args = {"output_location": "custom_output"}
+
+        result = merge_cli_args(mock_config, cli_args)
+
+        assert result["output_location"] == "custom_output"
+
+    def test_output_dir_backward_compat(self, mock_config):
+        """Test that output_dir overrides are still honored."""
+        cli_args = {"output_dir": "custom_output_dir"}
+
+        result = merge_cli_args(mock_config, cli_args)
+
+        assert result["output_location"] == "custom_output_dir"
+
+    def test_output_location_takes_precedence(self, mock_config):
+        """Test that output_location wins when both keys are present."""
+        cli_args = {"output_location": "preferred", "output_dir": "fallback"}
+
+        result = merge_cli_args(mock_config, cli_args)
+
+        assert result["output_location"] == "preferred"
+
 
 class TestParseNuwaConfig:
     """Tests for parsing pyproject.toml."""
@@ -125,5 +149,77 @@ entry-point = "main.nim"
             assert config["module_name"] == "custom_module"
             assert config["nim_source"] == "src/nim"
             assert config["entry_point"] == "main.nim"
+        finally:
+            os.chdir(original)
+
+    def test_windows_static_linking_adds_flag(self, temp_project, monkeypatch):
+        """Ensure Windows static linking injects --passL:-static by default."""
+        pyproject = temp_project / "pyproject.toml"
+        pyproject.write_text(
+            """[project]
+name = "my-package"
+version = "0.1.0"
+"""
+        )
+
+        import os
+
+        original = os.getcwd()
+        try:
+            os.chdir(temp_project)
+            monkeypatch.setattr("sys.platform", "win32")
+            config = parse_nuwa_config()
+
+            assert "--passL:-static" in config["nim_flags"]
+        finally:
+            os.chdir(original)
+
+    def test_windows_static_linking_can_be_disabled(self, temp_project, monkeypatch):
+        """Ensure windows-static-linking = false does not inject static flag."""
+        pyproject = temp_project / "pyproject.toml"
+        pyproject.write_text(
+            """[project]
+name = "my-package"
+version = "0.1.0"
+
+[tool.nuwa]
+windows-static-linking = false
+"""
+        )
+
+        import os
+
+        original = os.getcwd()
+        try:
+            os.chdir(temp_project)
+            monkeypatch.setattr("sys.platform", "win32")
+            config = parse_nuwa_config()
+
+            assert "--passL:-static" not in config["nim_flags"]
+        finally:
+            os.chdir(original)
+
+    def test_windows_static_linking_skips_for_vcc(self, temp_project, monkeypatch):
+        """Ensure --passL:-static isn't injected when using --cc:vcc."""
+        pyproject = temp_project / "pyproject.toml"
+        pyproject.write_text(
+            """[project]
+name = "my-package"
+version = "0.1.0"
+
+[tool.nuwa]
+nim-flags = ["--cc:vcc"]
+"""
+        )
+
+        import os
+
+        original = os.getcwd()
+        try:
+            os.chdir(temp_project)
+            monkeypatch.setattr("sys.platform", "win32")
+            config = parse_nuwa_config()
+
+            assert "--passL:-static" not in config["nim_flags"]
         finally:
             os.chdir(original)

@@ -108,6 +108,8 @@ def parse_nuwa_config(profile: Optional[str] = None) -> dict[str, Any]:
         "nim_flags": list(nuwa.get("nim-flags", [])),
         "bindings": nuwa.get("bindings", "nimpy"),
         "nimble_deps": list(nuwa.get("nimble-deps", [])),
+        "allow_manifest_binaries": bool(nuwa.get("allow-manifest-binaries", False)),
+        "windows_static_linking": bool(nuwa.get("windows-static-linking", True)),
     }
 
     # Apply profile if specified
@@ -122,6 +124,15 @@ def parse_nuwa_config(profile: Optional[str] = None) -> dict[str, Any]:
         config["nim_flags"].extend(profile_flags)
 
     _validate_config_fields(config)
+
+    if (
+        sys.platform == "win32"
+        and config.get("windows_static_linking", False)
+        and "--passL:-static" not in config["nim_flags"]
+        and "--cc:vcc" not in config["nim_flags"]
+    ):
+        config["nim_flags"].append("--passL:-static")
+
     return config
 
 
@@ -164,14 +175,18 @@ def merge_cli_args(config: dict[str, Any], cli_args: dict[str, Any]) -> dict[str
         "module_name": "module_name",
         "nim_source": "nim_source",
         "entry_point": "entry_point",
+        "allow_manifest_binaries": "allow_manifest_binaries",
+        "windows_static_linking": "windows_static_linking",
     }
 
     for cli_key, config_key in cli_to_config_map.items():
         if cli_args.get(cli_key):
             result[config_key] = cli_args[cli_key]
 
-    # output_dir -> output_location (different key names)
-    if cli_args.get("output_dir"):
+    # output_location/output_dir -> output_location (different key names)
+    if "output_location" in cli_args and cli_args["output_location"] is not None:
+        result["output_location"] = cli_args["output_location"]
+    elif "output_dir" in cli_args and cli_args["output_dir"] is not None:
         result["output_location"] = cli_args["output_dir"]
 
     # nim_flags: extend existing flags (don't replace)
