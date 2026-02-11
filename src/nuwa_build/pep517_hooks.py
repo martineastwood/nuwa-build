@@ -357,6 +357,7 @@ def _add_compiled_extension(
     name_normalized: str,
     lib_name: str,
     ext: str,
+    bundle_adjacent_dlls: bool,
 ) -> None:
     """Add compiled extension to the wheel.
 
@@ -375,7 +376,7 @@ def _add_compiled_extension(
 
     # On Windows, also bundle any DLL files generated alongside the .pyd
     # These are runtime dependencies that the .pyd needs to load
-    if so_file.suffix == ".pyd":
+    if bundle_adjacent_dlls and so_file.suffix == ".pyd":
         dlls_found = list(so_file.parent.glob("*.dll"))
         if dlls_found:
             for dll_file in dlls_found:
@@ -502,6 +503,7 @@ def build_wheel(
     if config_overrides:
         config = merge_cli_args(config, config_overrides)
     allow_manifest_binaries = bool(config.get("allow_manifest_binaries", False))
+    bundle_adjacent_dlls = bool(config.get("bundle_adjacent_dlls", True))
 
     # Extract metadata
     name, version = _extract_metadata()
@@ -522,7 +524,7 @@ def build_wheel(
         _add_python_package_files(wf, name_normalized, allow_manifest_binaries)
 
         # 2. Add compiled extension
-        _add_compiled_extension(wf, so_file, name_normalized, lib_name, ext)
+        _add_compiled_extension(wf, so_file, name_normalized, lib_name, ext, bundle_adjacent_dlls)
 
         # 3. Add type stubs
         _add_type_stubs(wf, so_file, name_normalized, lib_name)

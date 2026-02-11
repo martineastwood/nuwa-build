@@ -223,3 +223,48 @@ nim-flags = ["--cc:vcc"]
             assert "--passL:-static" not in config["nim_flags"]
         finally:
             os.chdir(original)
+
+    def test_bundle_adjacent_dlls_default_true(self, temp_project):
+        """Default should enable bundling adjacent DLLs."""
+        pyproject = temp_project / "pyproject.toml"
+        pyproject.write_text(
+            """[project]
+name = "my-package"
+version = "0.1.0"
+"""
+        )
+
+        import os
+
+        original = os.getcwd()
+        try:
+            os.chdir(temp_project)
+            config = parse_nuwa_config()
+
+            assert config["bundle_adjacent_dlls"] is True
+        finally:
+            os.chdir(original)
+
+    def test_bundle_adjacent_dlls_can_be_disabled(self, temp_project):
+        """Explicitly disabling bundle-adjacent-dlls is respected."""
+        pyproject = temp_project / "pyproject.toml"
+        pyproject.write_text(
+            """[project]
+name = "my-package"
+version = "0.1.0"
+
+[tool.nuwa]
+bundle-adjacent-dlls = false
+"""
+        )
+
+        import os
+
+        original = os.getcwd()
+        try:
+            os.chdir(temp_project)
+            config = parse_nuwa_config()
+
+            assert config["bundle_adjacent_dlls"] is False
+        finally:
+            os.chdir(original)

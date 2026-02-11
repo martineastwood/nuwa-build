@@ -110,6 +110,7 @@ def parse_nuwa_config(profile: Optional[str] = None) -> dict[str, Any]:
         "nimble_deps": list(nuwa.get("nimble-deps", [])),
         "allow_manifest_binaries": bool(nuwa.get("allow-manifest-binaries", False)),
         "windows_static_linking": bool(nuwa.get("windows-static-linking", True)),
+        "bundle_adjacent_dlls": bool(nuwa.get("bundle-adjacent-dlls", True)),
     }
 
     # Apply profile if specified
@@ -177,6 +178,7 @@ def merge_cli_args(config: dict[str, Any], cli_args: dict[str, Any]) -> dict[str
         "entry_point": "entry_point",
         "allow_manifest_binaries": "allow_manifest_binaries",
         "windows_static_linking": "windows_static_linking",
+        "bundle_adjacent_dlls": "bundle_adjacent_dlls",
     }
 
     for cli_key, config_key in cli_to_config_map.items():

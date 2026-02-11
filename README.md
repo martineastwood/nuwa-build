@@ -345,6 +345,9 @@ nimble-deps = ["nimpy", "cligen >= 1.0.0"]
 # Statically link MinGW runtimes on Windows (default: true)
 windows-static-linking = true
 
+# Bundle adjacent DLLs alongside the compiled extension (default: true)
+bundle-adjacent-dlls = true
+
 # Allow MANIFEST.in to include compiled binaries like .pyd/.dll/.so (default: false)
 allow-manifest-binaries = false
 
@@ -374,6 +377,7 @@ nim-flags = ["-d:release", "--opt:size"]
 | `nim-flags`                  | list    | `[]`                      | Additional compiler flags                                      |
 | `nimble-deps`                | list    | `[]`                      | Nimble packages to auto-install before build                   |
 | `windows-static-linking`     | boolean | `true`                    | Statically link MinGW runtimes on Windows                      |
+| `bundle-adjacent-dlls`       | boolean | `true`                    | Bundle DLLs found next to the compiled extension               |
 | `allow-manifest-binaries`    | boolean | `false`                   | Allow MANIFEST.in to include compiled binaries                |
 | `profiles`                   | table   | `{}`                      | Predefined build profiles with preset compiler flags           |
 
