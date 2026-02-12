@@ -555,12 +555,113 @@ def build_sdist(
     # Extract metadata
     name, version = _extract_metadata()
 
-    # Create source distribution archive
+    # Create source distribution archive with selective filtering
+    # We need to create a temporary directory with only the files we want
+    import tempfile
+
     base_name = f"{name}-{version}"
     archive_name = f"{base_name}.tar.gz"
-    shutil.make_archive(str(Path(sdist_directory) / base_name), "gztar", root_dir=".")
+
+    # Directories to exclude from sdist
+    exclude_dirs = {
+        ".git",
+        ".github",
+        ".venv",
+        "venv",
+        "env",
+        ".nimble",
+        "nimble",
+        "__pycache__",
+        "*.egg-info",
+        "dist",
+        "build",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".mypy_cache",
+        "htmlcov",
+        ".tox",
+        "node_modules",
+        ".vscode",
+        ".idea",
+        "docs/_build",
+    }
+
+    # File patterns to exclude
+    exclude_patterns = {
+        "*.pyc",
+        "*.pyo",
+        "*.so",
+        "*.pyd",
+        "*.dll",
+        "*.dylib",
+        ".DS_Store",
+        "*.swp",
+        "*.swo",
+        "*~",
+    }
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        src_dir = Path(tmpdir) / base_name
+        src_dir.mkdir()
+
+        # Copy files, excluding unwanted directories
+        for item in Path(".").iterdir():
+            if item.name in exclude_dirs or item.name.startswith("."):
+                continue
+            if item.is_dir():
+                # Recursively copy directory, respecting exclusions
+                dest_dir = src_dir / item.name
+                dest_dir.mkdir(exist_ok=True)
+                _copy_dir(item, dest_dir, exclude_dirs, exclude_patterns)
+            else:
+                # Check if file matches any exclusion pattern
+                should_exclude = False
+                for pattern in exclude_patterns:
+                    if fnmatch(item.name, pattern):
+                        should_exclude = True
+                        break
+                if not should_exclude:
+                    shutil.copy2(item, src_dir / item.name)
+
+        # Create the archive from the filtered directory
+        shutil.make_archive(
+            str(Path(sdist_directory) / base_name), "gztar", root_dir=tmpdir, base_dir=base_name
+        )
 
     return archive_name
+
+
+def _copy_dir(
+    src: Path,
+    dest: Path,
+    exclude_dirs: set,
+    exclude_patterns: set,
+) -> None:
+    """Recursively copy directory with filtering.
+
+    Args:
+        src: Source directory
+        dest: Destination directory
+        exclude_dirs: Directory names to exclude
+        exclude_patterns: File patterns to exclude
+    """
+    for item in src.iterdir():
+        if item.name in exclude_dirs or item.name.startswith("."):
+            continue
+
+        if item.is_dir():
+            new_dest = dest / item.name
+            new_dest.mkdir(exist_ok=True)
+            _copy_dir(item, new_dest, exclude_dirs, exclude_patterns)
+        else:
+            # Check if file matches any exclusion pattern
+            should_exclude = False
+            for pattern in exclude_patterns:
+                if fnmatch(item.name, pattern):
+                    should_exclude = True
+                    break
+            if not should_exclude:
+                shutil.copy2(item, dest / item.name)
 
 
 # --- PEP 660 Hooks (Editable Installs) ---
