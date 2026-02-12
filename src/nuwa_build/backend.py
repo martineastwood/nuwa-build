@@ -2,8 +2,16 @@
 
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Optional
+
+# Configure UTF-8 encoding for Windows compatibility
+if sys.platform == "win32":
+    import io
+
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
 
 from .config import load_pyproject_toml, merge_cli_args, parse_nuwa_config
 from .discovery import discover_nim_sources, validate_nim_entry_point
