@@ -66,17 +66,8 @@ class StubGenerator:
         Returns:
             Path to the generated .pyi file
         """
-        # Start with imports
+        # Start with imports (use modern lowercase list, no typing.List needed)
         pyi_lines = [f"# Stubs for {self.module_name}", "from typing import Any", ""]
-
-        # Check if we need List import
-        needs_list = any(
-            "list[" in entry.get("returnType", "")
-            or any("list[" in arg.get("type", "") for arg in entry.get("args", []))
-            for entry in self.entries
-        )
-        if needs_list:
-            pyi_lines[1] = "from typing import Any, List"
 
         # Add each function
         for entry in self.entries:
