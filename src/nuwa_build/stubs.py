@@ -87,15 +87,20 @@ class StubGenerator:
                 else:
                     args_list.append(f"{a_name}: {a_type}")
 
-            args_str = ", ".join(args_list)
-
-            # Handle functions with no arguments
-            if not args_str:
-                args_str = ""
-
-            # Build function definition
-            func_def = f"def {name}({args_str}) -> {ret_type}:"
-            pyi_lines.append(func_def)
+            # Build function definition with ruff-compatible formatting
+            # Use multi-line style if there are 3+ arguments (ruff's heuristic)
+            if len(args_list) >= 3:
+                # Multi-line format
+                pyi_lines.append(f"def {name}(")
+                for arg_line in args_list:
+                    pyi_lines.append(f"    {arg_line},")
+                pyi_lines.append(f") -> {ret_type}:")
+            else:
+                # Single-line format
+                args_str = ", ".join(args_list)
+                if not args_str:
+                    args_str = ""
+                pyi_lines.append(f"def {name}({args_str}) -> {ret_type}:")
 
             # Add docstring
             if doc and doc.strip():
@@ -105,7 +110,12 @@ class StubGenerator:
                 else:
                     pyi_lines.append('    """')
                     for line in doc_lines:
-                        pyi_lines.append(f"    {line}")
+                        # Strip trailing whitespace and skip empty lines to avoid ruff warnings
+                        stripped = line.rstrip()
+                        if stripped:  # Only add non-empty lines
+                            pyi_lines.append(f"    {stripped}")
+                        else:
+                            pyi_lines.append("")  # Preserve paragraph breaks as empty lines
                     pyi_lines.append('    """')
 
             pyi_lines.append("    ...")
