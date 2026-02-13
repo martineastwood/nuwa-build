@@ -220,9 +220,10 @@ class TestStubGeneratorIntegration:
             generator.parse_stubs(stub_dir, "")
             pyi_path = generator.generate_pyi(output_dir)
 
-            # Verify List import is included
+            # Verify modern lowercase list types are used (PEP 585)
             content = pyi_path.read_text()
-            assert "from typing import Any, List" in content
+            assert "from typing import Any" in content
+            assert "List" not in content  # Should use lowercase list
             assert "def process_items(items: list[int]) -> list[str]:" in content
 
     def test_generate_pyi_with_multiline_docstring(self):
