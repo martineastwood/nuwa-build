@@ -16,7 +16,7 @@ on:
       - "LICENSE"
       - ".gitignore"
 
-jobs: # FIXED: This must be at the top level (aligned with 'on')
+jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -45,7 +45,6 @@ jobs: # FIXED: This must be at the top level (aligned with 'on')
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # Removed 3.14 as it may not be available on standard runners yet
         python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
 
     steps:
@@ -119,11 +118,6 @@ jobs: # FIXED: This must be at the top level (aligned with 'on')
           python -m pip install --upgrade pip
           pip install -e ".[test]"
 
-      - name: Uninstall pytest-cov on Windows (workaround for pytest-cov bug)
-        if: runner.os == 'Windows'
-        shell: bash
-        run: pip uninstall pytest-cov -y
-
       - name: Run all tests (including integration)
         run: |
-          pytest -v
+          pytest -v -s
