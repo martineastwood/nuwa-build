@@ -119,6 +119,10 @@ jobs: # FIXED: This must be at the top level (aligned with 'on')
           python -m pip install --upgrade pip
           pip install -e ".[test]"
 
+      - name: Uninstall pytest-cov on Windows (workaround for pytest-cov bug)
+        if: runner.os == 'Windows'
+        run: pip uninstall pytest-cov -y
+
       - name: Run all tests (including integration)
         run: |
           pytest -v
