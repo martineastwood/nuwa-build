@@ -326,12 +326,12 @@ def validate_nimble_dependency_name(dep: str) -> None:
         raise ValueError("Dependency name is too long (max 100 characters)")
 
     # Check for valid characters (alphanumeric, hyphen, underscore)
-    # Nimble packages can also have version specifiers like "package@#head"
-    # So we allow @ and # for version/url specifiers
-    if not re.match(r"^[a-zA-Z0-9_\-@#\/]+$", dep):
+    # Nimble packages can also have version specifiers like "package@#head" or "package@0.2.1"
+    # So we allow @, #, . (period) for version/url specifiers
+    if not re.match(r"^[a-zA-Z0-9_\-@#.\/]+$", dep):
         raise ValueError(
             f"Dependency name '{dep}' contains invalid characters. "
-            f"Only letters, numbers, hyphens, underscores, and @/# are allowed."
+            f"Only letters, numbers, hyphens, underscores, periods, and @/# are allowed."
         )
 
     # Check for obvious path traversal attempts
