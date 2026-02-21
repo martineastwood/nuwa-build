@@ -1,7 +1,6 @@
 """Utility functions for Nuwa Build."""
 
 import builtins
-import contextlib
 import os
 import re
 import shutil
@@ -208,6 +207,7 @@ def install_nimble_dependencies(deps: list, local_dir: Optional[Path] = None) ->
 
     # Install each dependency
     for dep in deps:
+        validate_nimble_dependency_name(dep)
         print(f"  Installing {dep}...")
         cmd = ["nimble", "install", "-y", dep]
         result = subprocess.run(cmd, capture_output=True, text=True, check=False, env=env)
@@ -291,12 +291,52 @@ def validate_path(path: Path) -> None:
         )
 
     # Check if path is within parent (no directory traversal)
-    with contextlib.suppress(ValueError):
+    # If resolved is not within parent.parent, relative_to will raise ValueError
+    # This catches cases like "../../../etc/passwd"
+    try:
         resolved.relative_to(resolved.parent.parent)
+    except ValueError:
+        raise ValueError(
+            f"Path '{path}' attempts to escape parent directory.\n"
+            f"Please use a path within '{resolved.parent.parent}'."
+        ) from None
 
     # Warn if path is absolute (usually not what users want for 'nuwa new')
     if path.is_absolute():
         print(f"⚠️  Warning: Using absolute path '{path}'")
+
+
+def validate_nimble_dependency_name(dep: str) -> None:
+    """Validate nimble dependency name is safe.
+
+    Nimble package names should follow standard naming conventions.
+    This prevents command injection through malicious dependency names.
+
+    Args:
+        dep: Dependency name to validate
+
+    Raises:
+        ValueError: If dependency name is invalid or unsafe
+    """
+    if not dep:
+        raise ValueError("Dependency name cannot be empty")
+
+    # Check for reasonable length
+    if len(dep) > 100:
+        raise ValueError("Dependency name is too long (max 100 characters)")
+
+    # Check for valid characters (alphanumeric, hyphen, underscore)
+    # Nimble packages can also have version specifiers like "package@#head"
+    # So we allow @ and # for version/url specifiers
+    if not re.match(r"^[a-zA-Z0-9_\-@#\/]+$", dep):
+        raise ValueError(
+            f"Dependency name '{dep}' contains invalid characters. "
+            f"Only letters, numbers, hyphens, underscores, and @/# are allowed."
+        )
+
+    # Check for obvious path traversal attempts
+    if ".." in dep or dep.startswith("/") or dep.startswith("\\"):
+        raise ValueError(f"Dependency name '{dep}' contains path traversal or absolute path")
 
 
 def validate_module_name(module_name: str) -> None:

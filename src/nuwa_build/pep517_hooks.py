@@ -519,21 +519,24 @@ def build_wheel(
     wheel_path = Path(wheel_directory) / wheel_name
 
     # Use WheelFile for automatic RECORD generation
-    with WheelFile(wheel_path, "w") as wf:
-        # 1. Add Python package files
-        _add_python_package_files(wf, name_normalized, allow_manifest_binaries)
+    try:
+        with WheelFile(wheel_path, "w") as wf:
+            # 1. Add Python package files
+            _add_python_package_files(wf, name_normalized, allow_manifest_binaries)
 
-        # 2. Add compiled extension
-        _add_compiled_extension(wf, so_file, name_normalized, lib_name, ext, bundle_adjacent_dlls)
+            # 2. Add compiled extension
+            _add_compiled_extension(
+                wf, so_file, name_normalized, lib_name, ext, bundle_adjacent_dlls
+            )
 
-        # 3. Add type stubs
-        _add_type_stubs(wf, so_file, name_normalized, lib_name)
+            # 3. Add type stubs
+            _add_type_stubs(wf, so_file, name_normalized, lib_name)
 
-        # 4. Add metadata
-        _add_wheel_metadata(wf, name, version, wheel_tag, name_normalized)
-
-    # Cleanup
-    _cleanup_build_artifacts(so_file, lib_name)
+            # 4. Add metadata
+            _add_wheel_metadata(wf, name, version, wheel_tag, name_normalized)
+    finally:
+        # Cleanup always runs, even if wheel creation fails
+        _cleanup_build_artifacts(so_file, lib_name)
 
     return wheel_path.name
 

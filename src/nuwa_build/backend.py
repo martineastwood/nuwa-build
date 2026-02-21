@@ -10,8 +10,41 @@ from typing import Optional
 if sys.platform == "win32":
     import io
 
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
+    # Set UTF-8 mode for the Windows console
+    # This handles Unicode characters in error messages and output
+    try:
+        # Set console output code page to UTF-8
+        import ctypes
+
+        kernel32 = ctypes.windll.kernel32
+        kernel32.SetConsoleMode(
+            kernel32.GetStdHandle(-11), 0x0004
+        )  # ENABLE_VIRTUAL_TERMINAL_PROCESSING
+        kernel32.SetConsoleOutputCP(65001)  # CP_UTF8
+    except (AttributeError, OSError, ctypes.Exception):
+        # If ctypes fails, fall back to Python's encoding setup
+        pass
+
+    # Wrap stdout/stderr with UTF-8 encoding and error handling
+    # Use 'replace' error handler to handle characters that can't be encoded
+    try:
+        if hasattr(sys.stdout, "buffer"):
+            sys.stdout = io.TextIOWrapper(
+                sys.stdout.buffer,
+                encoding="utf-8",
+                errors="replace",
+                line_buffering=sys.stdout.line_buffering,
+            )
+        if hasattr(sys.stderr, "buffer"):
+            sys.stderr = io.TextIOWrapper(
+                sys.stderr.buffer,
+                encoding="utf-8",
+                errors="replace",
+                line_buffering=sys.stderr.line_buffering,
+            )
+    except (AttributeError, OSError):
+        # If wrapping fails, the system default encoding will be used
+        pass
 
 from .config import load_pyproject_toml, merge_cli_args, parse_nuwa_config
 from .discovery import discover_nim_sources, validate_nim_entry_point
