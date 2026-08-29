@@ -18,7 +18,7 @@ module-name = "{module_name}"
 lib-name = "{module_name}_lib"
 entry-point = "{module_name}_lib.nim"
 # Nimble dependencies (auto-installed before build)
-# Tip: Pin versions using "@" (e.g. "package@1.2.3") or ranges ("package >= 1.0")
+# Tip: Pin versions using "@" (e.g. "package@1.2.3") or ranges ("package@>=1.0")
 nimble-deps = ["nimpy@0.2.1", "nuwa_sdk@0.3.0"]
 
 # Build profiles - predefined compiler flag sets for different scenarios

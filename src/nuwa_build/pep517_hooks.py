@@ -10,6 +10,7 @@ from fnmatch import fnmatch
 from pathlib import Path
 from typing import Any, Optional
 
+from pyproject_metadata import StandardMetadata
 from wheel.wheelfile import WheelFile
 
 from .backend import _compile_nim, _extract_metadata
@@ -17,62 +18,31 @@ from .config import load_pyproject_toml, merge_cli_args, parse_nuwa_config
 from .utils import get_platform_extension, get_wheel_tags, normalize_package_name
 
 
-def _get_project_metadata() -> dict[str, Any]:
-    """Extract project metadata from pyproject.toml.
+def _build_core_metadata(
+    pyproject: dict[str, Any], project_dir: Path = Path(".")
+) -> tuple[bytes, str]:
+    """Build standards-compliant core metadata and entry points from PEP 621 data."""
+    metadata = StandardMetadata.from_pyproject(
+        pyproject,
+        project_dir=project_dir,
+        allow_extra_keys=True,
+    )
 
-    Returns:
-        Dictionary containing dependencies and optional dependencies
+    entrypoint_groups = dict(metadata.entrypoints)
+    if metadata.scripts:
+        entrypoint_groups["console_scripts"] = metadata.scripts
+    if metadata.gui_scripts:
+        entrypoint_groups["gui_scripts"] = metadata.gui_scripts
 
-    Returns empty dict if pyproject.toml not found or [project] section missing.
-    """
-    pyproject = load_pyproject_toml()
-    if not pyproject:
-        return {}
+    entrypoint_lines: list[str] = []
+    for group, entries in entrypoint_groups.items():
+        if not entries:
+            continue
+        entrypoint_lines.append(f"[{group}]")
+        entrypoint_lines.extend(f"{name} = {target}" for name, target in entries.items())
+        entrypoint_lines.append("")
 
-    project = pyproject.get("project", {})
-    return {
-        "dependencies": project.get("dependencies", []),
-        "optional_dependencies": project.get("optional-dependencies", {}),
-    }
-
-
-def _format_metadata_entries(
-    name: str, version: str, dependencies: list[str], optional_dependencies: dict[str, list[str]]
-) -> str:
-    """Format METADATA file content with dependencies.
-
-    Args:
-        name: Package name
-        version: Package version
-        dependencies: List of dependency strings (e.g., ["numpy >= 1.20"])
-        optional_dependencies: Dict of extras to dependency lists
-
-    Returns:
-        Formatted METADATA content string
-    """
-    lines = [
-        "Metadata-Version: 2.1",
-        f"Name: {name}",
-        f"Version: {version}",
-    ]
-
-    # Add Requires-Dist for each dependency
-    for dep in dependencies:
-        lines.append(f"Requires-Dist: {dep}")
-
-    # Add optional dependencies (extras)
-    for extra_name, deps in optional_dependencies.items():
-        lines.append(f"Provides-Extra: {extra_name}")
-        for dep in deps:
-            # Mark which extra this dependency belongs to
-            if ";" in dep:
-                # Already has environment markers - append our extra condition
-                lines.append(f"Requires-Dist: {dep} and extra == '{extra_name}'")
-            else:
-                # No environment markers - add extra condition
-                lines.append(f"Requires-Dist: {dep} ; extra == '{extra_name}'")
-
-    return "\n".join(lines) + "\n"
+    return metadata.as_rfc822().as_bytes(), "\n".join(entrypoint_lines)
 
 
 def write_wheel_metadata(wf: WheelFile, name: str, version: str, tag: str = "py3-none-any") -> str:
@@ -97,15 +67,10 @@ def write_wheel_metadata(wf: WheelFile, name: str, version: str, tag: str = "py3
         f"Wheel-Version: 1.0\nGenerator: nuwa\nRoot-Is-Purelib: false\nTag: {tag}\n",
     )
 
-    # Get project dependencies
-    project_meta = _get_project_metadata()
-    metadata_content = _format_metadata_entries(
-        name=name,
-        version=version,
-        dependencies=project_meta.get("dependencies", []),
-        optional_dependencies=project_meta.get("optional_dependencies", {}),
-    )
+    metadata_content, entry_points = _build_core_metadata(load_pyproject_toml())
     wf.writestr(f"{dist_info}/METADATA", metadata_content)
+    if entry_points:
+        wf.writestr(f"{dist_info}/entry_points.txt", entry_points)
 
     return dist_info
 
@@ -172,8 +137,27 @@ def _parse_manifest(manifest_path: Path) -> ManifestCommands:
     return commands
 
 
+def _get_package_dir(config: dict[str, Any]) -> Path:
+    """Return the configured Python package directory."""
+    module_name = str(config["module_name"])
+    output_location = str(config.get("output_location", "auto"))
+    if output_location == "src":
+        return Path("src") / module_name
+    if output_location == "auto":
+        return Path(module_name)
+    return Path(output_location)
+
+
+def _archive_name(file_path: Path, package_dir: Path, package_arcname: str) -> str:
+    """Map a package source file to its path inside a wheel."""
+    return str(Path(package_arcname) / file_path.relative_to(package_dir))
+
+
 def _add_python_package_files(
-    wf: WheelFile, name_normalized: str, allow_manifest_binaries: bool
+    wf: WheelFile,
+    package_dir: Path,
+    package_arcname: str,
+    allow_manifest_binaries: bool,
 ) -> None:
     """Add Python package files to the wheel.
 
@@ -182,9 +166,9 @@ def _add_python_package_files(
 
     Args:
         wf: WheelFile object to write to
-        name_normalized: Normalized package name
+        package_dir: Python package source directory
+        package_arcname: Import package path inside the wheel
     """
-    package_dir = Path(name_normalized)
     if not package_dir.exists():
         return
 
@@ -194,15 +178,18 @@ def _add_python_package_files(
     if has_manifest:
         # Use MANIFEST.in patterns
         commands = _parse_manifest(manifest_path)
-        _add_files_from_manifest(wf, package_dir, commands, allow_manifest_binaries)
+        _add_files_from_manifest(
+            wf, package_dir, package_arcname, commands, allow_manifest_binaries
+        )
     else:
         # Default: include all package data, exclude cache/build artifacts
-        _add_all_package_files(wf, package_dir)
+        _add_all_package_files(wf, package_dir, package_arcname)
 
 
 def _add_files_from_manifest(
     wf: WheelFile,
     package_dir: Path,
+    package_arcname: str,
     commands: ManifestCommands,
     allow_manifest_binaries: bool,
 ) -> None:
@@ -267,11 +254,11 @@ def _add_files_from_manifest(
         if not allow_manifest_binaries and file_path.suffix in [".pyd", ".so", ".dll", ".dylib"]:
             continue
         # Use full path for arcname (e.g., "mypackage/config.json")
-        arcname = str(file_path)
+        arcname = _archive_name(file_path, package_dir, package_arcname)
         wf.write(str(file_path), arcname=arcname)
 
 
-def _add_all_package_files(wf: WheelFile, package_dir: Path) -> None:
+def _add_all_package_files(wf: WheelFile, package_dir: Path, package_arcname: str) -> None:
     """Add all package files to wheel, excluding cache/build artifacts.
 
     This is the default behavior when no MANIFEST.in is present.
@@ -347,7 +334,7 @@ def _add_all_package_files(wf: WheelFile, package_dir: Path) -> None:
             continue
 
         # Use full path for arcname (e.g., "mypackage/config.json")
-        arcname = str(file_path)
+        arcname = _archive_name(file_path, package_dir, package_arcname)
         wf.write(str(file_path), arcname=arcname)
 
 
@@ -411,7 +398,6 @@ def _add_type_stubs(
 
 def _add_wheel_metadata(
     wf: WheelFile,
-    name: str,
     version: str,
     wheel_tag: str,
     name_normalized: str,
@@ -420,7 +406,6 @@ def _add_wheel_metadata(
 
     Args:
         wf: WheelFile object to write to
-        name: Package name
         version: Package version
         wheel_tag: Wheel tag (e.g., "cp313-cp313-linux_x86_64")
         name_normalized: Normalized package name
@@ -432,15 +417,10 @@ def _add_wheel_metadata(
     )
     wf.writestr(f"{dist_info}/WHEEL", wheel_content)
 
-    # Get project dependencies
-    project_meta = _get_project_metadata()
-    metadata_content = _format_metadata_entries(
-        name=name,
-        version=version,
-        dependencies=project_meta.get("dependencies", []),
-        optional_dependencies=project_meta.get("optional_dependencies", {}),
-    )
+    metadata_content, entry_points = _build_core_metadata(load_pyproject_toml())
     wf.writestr(f"{dist_info}/METADATA", metadata_content)
+    if entry_points:
+        wf.writestr(f"{dist_info}/entry_points.txt", entry_points)
 
 
 def _cleanup_build_artifacts(so_file: Path, lib_name: str) -> None:
@@ -522,18 +502,24 @@ def build_wheel(
     try:
         with WheelFile(wheel_path, "w") as wf:
             # 1. Add Python package files
-            _add_python_package_files(wf, name_normalized, allow_manifest_binaries)
+            package_dir = _get_package_dir(config)
+            _add_python_package_files(
+                wf,
+                package_dir=package_dir,
+                package_arcname=config["module_name"],
+                allow_manifest_binaries=allow_manifest_binaries,
+            )
 
             # 2. Add compiled extension
             _add_compiled_extension(
-                wf, so_file, name_normalized, lib_name, ext, bundle_adjacent_dlls
+                wf, so_file, config["module_name"], lib_name, ext, bundle_adjacent_dlls
             )
 
             # 3. Add type stubs
-            _add_type_stubs(wf, so_file, name_normalized, lib_name)
+            _add_type_stubs(wf, so_file, config["module_name"], lib_name)
 
             # 4. Add metadata
-            _add_wheel_metadata(wf, name, version, wheel_tag, name_normalized)
+            _add_wheel_metadata(wf, version, wheel_tag, name_normalized)
     finally:
         # Cleanup always runs, even if wheel creation fails
         _cleanup_build_artifacts(so_file, lib_name)

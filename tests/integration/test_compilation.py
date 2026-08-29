@@ -319,11 +319,77 @@ class TestWheelMetadata:
             metadata_content = whl.read(metadata_files[0]).decode()
 
         # Verify dependencies are present
-        assert "Requires-Dist: numpy >= 1.20" in metadata_content
-        assert "Requires-Dist: pandas >= 2.0" in metadata_content
+        assert "Requires-Dist: numpy>=1.20" in metadata_content
+        assert "Requires-Dist: pandas>=2.0" in metadata_content
         # Verify optional dependencies
         assert "Provides-Extra: test" in metadata_content
-        assert "Requires-Dist: pytest ; extra == 'test'" in metadata_content
+        assert 'Requires-Dist: pytest; extra == "test"' in metadata_content
+
+    def test_wheel_uses_configured_module_name_and_src_layout(self, tmp_path):
+        """Wheel paths should follow module-name rather than the distribution name."""
+        import shutil
+        import zipfile
+
+        fixture_path = Path(__file__).parent.parent / "fixtures" / "projects" / "simple"
+        project_path = tmp_path / "custom_layout"
+        shutil.copytree(fixture_path, project_path)
+
+        src_dir = project_path / "src"
+        src_dir.mkdir()
+        shutil.move(str(project_path / "simple_test"), str(src_dir / "simple_test"))
+
+        pyproject_path = project_path / "pyproject.toml"
+        pyproject_content = pyproject_path.read_text(encoding="utf-8")
+        pyproject_content = pyproject_content.replace(
+            'name = "simple-test"', 'name = "distribution-name"'
+        ).replace(
+            'module-name = "simple_test"',
+            'module-name = "simple_test"\noutput-location = "src"',
+        )
+        pyproject_path.write_text(pyproject_content, encoding="utf-8")
+
+        os.chdir(project_path)
+        wheel_dir = tmp_path / "wheels_custom_layout"
+        wheel_dir.mkdir()
+        wheel_filename = build_wheel(str(wheel_dir))
+
+        with zipfile.ZipFile(wheel_dir / wheel_filename) as whl:
+            names = set(whl.namelist())
+
+        assert "simple_test/__init__.py" in names
+        assert any(name.startswith("simple_test/simple_test_lib") for name in names)
+        assert not any(name.startswith("distribution_name/") for name in names)
+        assert not any(name.startswith("src/") for name in names)
+
+        install_dir = tmp_path / "installed_custom_layout"
+        wheel_path = wheel_dir / wheel_filename
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "--no-deps",
+                "--target",
+                str(install_dir),
+                str(wheel_path),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(install_dir)
+        subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import simple_test; assert simple_test.add(2, 3) == 5",
+            ],
+            check=True,
+            cwd=tmp_path,
+            env=env,
+        )
 
 
 @pytest.mark.integration

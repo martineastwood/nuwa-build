@@ -178,7 +178,7 @@ def install_nimble_dependencies(deps: list, local_dir: Optional[Path] = None) ->
     """Install nimble dependencies.
 
     Args:
-        deps: List of nimble package names or specs (e.g., ["nimpy", "cligen >= 1.0.0"])
+        deps: List of Nimble package specs (e.g., ["nimpy", "cligen@>=1.0.0"])
         local_dir: Optional path to local nimble directory (for project-level isolation)
 
     Raises:
@@ -325,13 +325,16 @@ def validate_nimble_dependency_name(dep: str) -> None:
     if len(dep) > 100:
         raise ValueError("Dependency name is too long (max 100 characters)")
 
-    # Check for valid characters (alphanumeric, hyphen, underscore)
-    # Nimble packages can also have version specifiers like "package@#head" or "package@0.2.1"
-    # So we allow @, #, . (period) for version/url specifiers
-    if not re.match(r"^[a-zA-Z0-9_\-@#.\/]+$", dep):
+    # Nimble accepts package@version and package@<range> selectors. This validation
+    # is intentionally narrower than Nimble's URL support because Nuwa installs
+    # dependencies automatically during builds.
+    package_spec = r"[a-zA-Z0-9_][a-zA-Z0-9_-]*"
+    version_spec = r"(?:#?[a-zA-Z0-9_.+-]+|(?:==|>=|<=|\^=|~=|>|<)\s*[a-zA-Z0-9_.+-]+)"
+    if not re.fullmatch(rf"{package_spec}(?:@{version_spec})?", dep):
         raise ValueError(
             f"Dependency name '{dep}' contains invalid characters. "
-            f"Only letters, numbers, hyphens, underscores, periods, and @/# are allowed."
+            "Use a package name optionally followed by a Nimble selector, "
+            "for example 'nimpy@0.2.1' or 'cligen@>=1.0.0'."
         )
 
     # Check for obvious path traversal attempts

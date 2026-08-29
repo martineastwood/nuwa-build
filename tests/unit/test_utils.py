@@ -11,6 +11,7 @@ from nuwa_build.utils import (
     get_platform_extension,
     get_wheel_tags,
     temp_directory,
+    validate_nimble_dependency_name,
     working_directory,
 )
 
@@ -157,6 +158,25 @@ class TestCheckNimbleInstalled:
         mock_which.return_value = None
 
         assert check_nimble_installed() is False
+
+
+class TestValidateNimbleDependencyName:
+    """Tests for safe Nimble package selectors."""
+
+    @pytest.mark.parametrize(
+        "dependency",
+        ["nimpy", "nimpy@0.2.1", "arraymancer@#head", "cligen@>=1.0.0", "pkg@> 0.5"],
+    )
+    def test_accepts_supported_selectors(self, dependency):
+        validate_nimble_dependency_name(dependency)
+
+    @pytest.mark.parametrize(
+        "dependency",
+        ["", "-d:danger", "../local", "pkg >= 1.0", "pkg;echo bad", "https://example.com/pkg"],
+    )
+    def test_rejects_unsafe_or_ambiguous_specs(self, dependency):
+        with pytest.raises(ValueError):
+            validate_nimble_dependency_name(dependency)
 
 
 class TestTempDirectory:

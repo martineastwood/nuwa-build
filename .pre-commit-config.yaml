@@ -16,6 +16,7 @@ repos:
         additional_dependencies:
           - tomli
           - pytest
+          - pyproject-metadata>=0.12.1,<0.13
           - watchdog
         args: [--config-file=.mypy.ini]
 

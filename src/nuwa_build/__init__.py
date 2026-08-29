@@ -1,6 +1,12 @@
 """Nuwa Build - The Maturin for Nim."""
 
-__version__ = "0.4.0"
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    __version__ = version("nuwa-build")
+except PackageNotFoundError:
+    # Source trees that have not been installed do not have distribution metadata.
+    __version__ = "0+unknown"
 
 from .pep517_hooks import (
     build_editable,

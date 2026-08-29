@@ -170,6 +170,6 @@ When helping users with nuwa-build:
 
 **Shell Completion**: Requires `pip install shtab`, then run `nuwa --print-completion bash|zsh|fish`
 
-**Version-specific dependencies**: `nimble-deps = ["nimpy", "cligen >= 1.0.0", "arraymancer@#head"]`
+**Version-specific dependencies**: `nimble-deps = ["nimpy", "cligen@>=1.0.0", "arraymancer@#head"]`
 
 **GitHub Actions**: Projects created with `nuwa new` include automated PyPI publishing workflow using Trusted Publishing. Configure at https://pypi.org/manage/account/publishing/ then push tags to trigger builds.

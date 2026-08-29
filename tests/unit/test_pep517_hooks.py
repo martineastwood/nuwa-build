@@ -8,6 +8,9 @@ from wheel.wheelfile import WheelFile
 from nuwa_build.pep517_hooks import (
     _add_compiled_extension,
     _add_files_from_manifest,
+    _add_python_package_files,
+    _build_core_metadata,
+    _get_package_dir,
     _parse_manifest,
 )
 
@@ -41,7 +44,13 @@ def test_manifest_recursive_patterns(tmp_path: Path):
 
     wheel_path = tmp_path / "my_pkg-0.0.0-py3-none-any.whl"
     with WheelFile(wheel_path, "w") as wf:
-        _add_files_from_manifest(wf, package_dir, commands, allow_manifest_binaries=False)
+        _add_files_from_manifest(
+            wf,
+            package_dir,
+            "my_pkg",
+            commands,
+            allow_manifest_binaries=False,
+        )
 
     with ZipFile(wheel_path) as zf:
         names = set(zf.namelist())
@@ -96,3 +105,69 @@ def test_bundle_adjacent_dlls(tmp_path: Path):
 
     assert any(name.endswith("my_pkg/my_pkg_lib.pyd") for name in names)
     assert any(name.endswith("my_pkg/helper.dll") for name in names)
+
+
+def test_package_dir_uses_module_name_and_src_layout(tmp_path: Path, monkeypatch):
+    """Distribution names must not determine the import package path."""
+    config = {"module_name": "import_name", "output_location": "src"}
+
+    assert _get_package_dir(config) == Path("src/import_name")
+
+    package_dir = tmp_path / "src" / "import_name"
+    package_dir.mkdir(parents=True)
+    (package_dir / "__init__.py").write_text("VALUE = 42\n", encoding="utf-8")
+    (package_dir / "data.json").write_text("{}\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    wheel_path = tmp_path / "distribution_name-1.0-py3-none-any.whl"
+    with WheelFile(wheel_path, "w") as wf:
+        _add_python_package_files(
+            wf,
+            package_dir=package_dir,
+            package_arcname="import_name",
+            allow_manifest_binaries=False,
+        )
+
+    with ZipFile(wheel_path) as zf:
+        names = set(zf.namelist())
+
+    assert "import_name/__init__.py" in names
+    assert "import_name/data.json" in names
+    assert not any(name.startswith("src/") for name in names)
+
+
+def test_core_metadata_preserves_pep621_fields(tmp_path: Path):
+    """Wheel metadata should preserve the static PEP 621 project metadata."""
+    readme = tmp_path / "README.md"
+    readme.write_text("# Example package\n", encoding="utf-8")
+    pyproject = {
+        "project": {
+            "name": "distribution-name",
+            "version": "1.2.3",
+            "description": "An example native extension",
+            "readme": "README.md",
+            "requires-python": ">=3.10",
+            "authors": [{"name": "Example Author", "email": "author@example.com"}],
+            "license": {"text": "MIT"},
+            "keywords": ["nim", "python"],
+            "classifiers": ["Programming Language :: Python :: 3"],
+            "urls": {"Repository": "https://example.com/repository"},
+            "dependencies": ["numpy>=2"],
+            "optional-dependencies": {"test": ["pytest>=8"]},
+            "scripts": {"example-cli": "import_name.cli:main"},
+        }
+    }
+
+    metadata, entry_points = _build_core_metadata(pyproject, project_dir=tmp_path)
+    metadata_text = metadata.decode("utf-8")
+
+    assert "Name: distribution-name" in metadata_text
+    assert "Version: 1.2.3" in metadata_text
+    assert "Summary: An example native extension" in metadata_text
+    assert "Requires-Python: >=3.10" in metadata_text
+    assert "Author-Email: Example Author <author@example.com>" in metadata_text
+    assert "Project-URL: Repository, https://example.com/repository" in metadata_text
+    assert "Requires-Dist: numpy>=2" in metadata_text
+    assert "Provides-Extra: test" in metadata_text
+    assert "# Example package" in metadata_text
+    assert entry_points == "[console_scripts]\nexample-cli = import_name.cli:main\n"

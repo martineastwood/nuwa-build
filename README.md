@@ -335,7 +335,7 @@ output-location = "auto"
 nim-flags = []
 
 # Nimble dependencies (auto-installed before build)
-nimble-deps = ["nimpy", "cligen >= 1.0.0"]
+nimble-deps = ["nimpy", "cligen@>=1.0.0"]
 
 # Windows packaging safeguards (optional)
 # Statically link MinGW runtimes on Windows (default: true)
