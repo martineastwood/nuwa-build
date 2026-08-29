@@ -27,6 +27,13 @@ pip install nuwa-build
 nimble install nimpy
 ```
 
+Optional features can be installed separately:
+
+```bash
+pip install "nuwa-build[watch]"     # nuwa watch
+pip install "nuwa-build[notebook]"  # Jupyter/IPython magics
+```
+
 **Requirements**:
 
 - CPython 3.9+ (regular builds through Python 3.14 are covered by the generated release workflow)
@@ -106,6 +113,10 @@ Standard LLMs often assume Python extensions require `setup.py` or `pip install 
 For development, use watch mode to automatically recompile when you change Nim files:
 
 ```bash
+pip install "nuwa-build[watch]"
+```
+
+```bash
 # Watch for changes and auto-recompile
 nuwa watch
 
@@ -119,6 +130,8 @@ nuwa watch --release
 ## Jupyter Notebook Support
 
 Nuwa-Build includes a Jupyter magic command for compiling Nim code directly in notebooks.
+
+Install the notebook integration with `pip install "nuwa-build[notebook]"`.
 
 ### Usage
 

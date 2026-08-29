@@ -4,9 +4,6 @@ import subprocess
 import time
 from pathlib import Path
 
-from watchdog.events import FileSystemEventHandler
-from watchdog.observers import Observer
-
 from .backend import _compile_nim
 from .config import build_config_overrides, merge_cli_args, parse_nuwa_config
 from .errors import format_error
@@ -19,6 +16,17 @@ def run_watch(args) -> None:
     Args:
         args: Parsed command-line arguments
     """
+
+    try:
+        from watchdog.events import FileSystemEventHandler
+        from watchdog.observers import Observer
+    except ModuleNotFoundError as exc:
+        if exc.name == "watchdog" or (exc.name and exc.name.startswith("watchdog.")):
+            raise RuntimeError(
+                "Watch mode requires the optional dependency: "
+                "install it with `pip install 'nuwa-build[watch]'`"
+            ) from exc
+        raise
 
     # Get profile from args (may be None)
     profile = getattr(args, "profile", None)

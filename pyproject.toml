@@ -8,7 +8,8 @@ version = "0.4.3"
 description = "Build and publish Nim extensions for Python with zero configuration."
 readme = "README.md"
 authors = [{ name = "Martin Eastwood", email = "martin.eastwood@gmx.com" }]
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.9"
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -23,16 +24,21 @@ classifiers = [
     "Topic :: Software Development :: Build Tools",
 ]
 dependencies = [
-    "ipython >= 7.0.0",
     "packaging >= 23.0",
     "pyproject-metadata >= 0.12.1, < 0.13",
     "tomli >= 1.2.0 ; python_version < '3.11'",
-    "watchdog >= 5.0.0",
     "wheel >= 0.40.0",
 ]
 
 [project.optional-dependencies]
-test = ["pytest >= 7.0.0, < 8.0.0", "pytest-cov >= 4.0.0, < 7.0.0"]
+notebook = ["ipython >= 7.0.0"]
+watch = ["watchdog >= 5.0.0"]
+test = [
+    "ipython >= 7.0.0",
+    "pytest >= 7.0.0, < 8.0.0",
+    "pytest-cov >= 4.0.0, < 7.0.0",
+    "watchdog >= 5.0.0",
+]
 dev = [
     "mypy >= 1.0.0",
     "pre-commit >= 4.0.0",
