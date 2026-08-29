@@ -19,7 +19,7 @@ lib-name = "{module_name}_lib"
 entry-point = "{module_name}_lib.nim"
 # Nimble dependencies (auto-installed before build)
 # Tip: Pin versions using "@" (e.g. "package@1.2.3") or ranges ("package@>=1.0")
-nimble-deps = ["nimpy@0.2.1", "nuwa_sdk@0.3.0"]
+nimble-deps = ["nimpy@0.2.1", "nuwa_sdk@0.4.3"]
 
 # Build profiles - predefined compiler flag sets for different scenarios
 # Use: nuwa develop --profile dev
@@ -429,7 +429,7 @@ lib-name = "{module_name}_lib"
 # Entry point file
 entry-point = "{module_name}_lib.nim"
 # Nimble dependencies (auto-installed before build)
-nimble-deps = ["nimpy", "nuwa_sdk"]
+nimble-deps = ["nimpy@0.2.1", "nuwa_sdk@0.4.3"]
 
 # Build profiles - predefined compiler flag sets for different scenarios
 [tool.nuwa.profiles.dev]

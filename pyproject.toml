@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nuwa-build"
-version = "0.4.3"
+version = "0.5.0"
 description = "Build and publish Nim extensions for Python with zero configuration."
 readme = "README.md"
 authors = [{ name = "Martin Eastwood", email = "martin.eastwood@gmx.com" }]
@@ -44,6 +44,13 @@ dev = [
     "ruff >= 0.1.0",
     "shtab >= 1.7.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/martineastwood/nuwa-build"
+Documentation = "https://martineastwood.github.io/nuwa-docs/"
+Repository = "https://github.com/martineastwood/nuwa-build"
+Issues = "https://github.com/martineastwood/nuwa-build/issues"
+Changelog = "https://github.com/martineastwood/nuwa-build/blob/main/CHANGELOG.md"
 
 [project.scripts]
 # This registers the 'nuwa' command in your terminal

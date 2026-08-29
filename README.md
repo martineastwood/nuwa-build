@@ -1,6 +1,37 @@
 # Nuwa Build
 
-Build Python extensions with Nim using zero-configuration tooling.
+Compile Nim into Python extensions. Docs: [Nuwa documentation](https://martineastwood.github.io/nuwa-docs/). Changelog: [CHANGELOG.md](CHANGELOG.md).
+
+## First hour
+
+1. Install a [Nim compiler](https://nim-lang.org/install.html) and confirm `nim --version` works.
+2. `pip install nuwa-build` (CPython 3.10 or newer).
+3. `nuwa new hello && cd hello`
+4. `nuwa develop`
+5. `python example.py`
+
+`nuwa new` installs `nimpy` and `nuwa_sdk` from `nimble-deps`. You do not need a separate `nimble install nimpy` for a new project.
+
+Mark every Nim procedure that should appear in Python with `{.nuwa_export.}`. Without that pragma the project still compiles, and the function is invisible from Python.
+
+Optional extras:
+
+```bash
+pip install "nuwa-build[watch]"     # nuwa watch
+pip install "nuwa-build[notebook]"  # Jupyter/IPython magics
+```
+
+## Support matrix
+
+| Item | Tested |
+| --- | --- |
+| CPython 3.10, 3.11, 3.12, 3.13, 3.14 | Yes |
+| Linux, macOS, Windows | Native architecture of the runner or machine |
+| Linux wheels | manylinux x86_64 |
+| Free-threaded CPython (`cp314t`) | No |
+| PyPy | No |
+| musllinux | No (official Nim binaries are glibc) |
+| Linux aarch64 wheels | No (the GitHub Action installs x86_64 Nim on Linux) |
 
 ## Features
 
@@ -20,29 +51,10 @@ Build Python extensions with Nim using zero-configuration tooling.
 ## Installation
 
 ```bash
-# Install Nuwa
 pip install nuwa-build
-
-# Install nimpy (Nim-Python bridge)
-nimble install nimpy
 ```
 
-Optional features can be installed separately:
-
-```bash
-pip install "nuwa-build[watch]"     # nuwa watch
-pip install "nuwa-build[notebook]"  # Jupyter/IPython magics
-```
-
-**Requirements**:
-
-- CPython 3.10+ (regular builds through Python 3.14 are covered by the generated release workflow)
-- Nim compiler (must be installed and available in your PATH)
-- nimpy library (install via `nimble install nimpy`)
-
-**Python Version Support**:
-
-Nuwa Build supports regular CPython builds from 3.10 onwards. The generated release workflow currently builds and tests CPython 3.10 through 3.14. Free-threaded (`cp314t`) builds are not yet part of the tested support matrix.
+See [First hour](#first-hour) for Nim, extras, and `{.nuwa_export.}`.
 
 ## Quick Start
 

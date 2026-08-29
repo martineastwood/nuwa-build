@@ -56,6 +56,7 @@ git checkout -b fix/your-bug-fix
 - Write code following the style guide (see below)
 - Add tests for new functionality
 - Update documentation as needed
+- Add a `CHANGELOG.md` entry for user-visible changes
 
 ### 3. Run Quality Checks
 
