@@ -98,8 +98,7 @@ def get_platform_extension() -> str:
 def get_wheel_tags(name: str, version: str) -> str:
     """Generate wheel filename with proper platform tags.
 
-    Uses packaging.tags to correctly determine Python, ABI, and platform tags,
-    including support for Python 3.14+ free-threaded builds (cp314t ABI tags).
+    Uses packaging.tags to determine the current Python, ABI, and platform tags.
 
     Args:
         name: Package name
@@ -115,7 +114,7 @@ def get_wheel_tags(name: str, version: str) -> str:
     # sys_tags() yields compatible tags in order of specificity (most specific first)
     # This automatically handles:
     # - Python interpreter tags (cp313, cp314, etc.)
-    # - Free-threaded ABI tags (cp314t, etc.) for Python 3.14+
+    # - ABI tags reported by the running interpreter
     # - Platform-specific tags (macosx, win_amd64, etc.)
     tag = next(sys_tags())
 

@@ -128,7 +128,7 @@ def run_new(args: argparse.Namespace) -> None:
     create_tests_scaffolding(path, module_name)
     create_example_file(path, module_name)
     create_readme(path, name, module_name)
-    create_github_actions(path)
+    create_github_actions(path, module_name)
     update_gitignore(path)
 
     print(f"✅ Ready! \n   cd {path}\n   nuwa develop\n   python example.py\n   pytest")

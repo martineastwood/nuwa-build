@@ -29,13 +29,13 @@ nimble install nimpy
 
 **Requirements**:
 
-- Python 3.9+ (including Python 3.14 with free-threaded ABI support)
+- CPython 3.9+ (regular builds through Python 3.14 are covered by the generated release workflow)
 - Nim compiler (must be installed and available in your PATH)
 - nimpy library (install via `nimble install nimpy`)
 
 **Python Version Support**:
 
-Nuwa Build supports all Python versions from 3.9 onwards, including Python 3.14 with free-threaded (GIL-less) execution. The build system automatically detects and uses the correct ABI tags for your Python version, including `cp314t` for free-threaded builds.
+Nuwa Build supports regular CPython builds from 3.9 onwards. The generated release workflow currently builds and tests CPython 3.9 through 3.14. Free-threaded (`cp314t`) builds are not yet part of the tested support matrix.
 
 ## Quick Start
 
@@ -277,8 +277,8 @@ To customize the build (e.g., different Nim version or cibuildwheel version), ed
 - name: Build wheels
   uses: martineastwood/nuwa-build-action@v1
   with:
-    nim-version: "2.2.0"      # Nim version to install
-    cibw-version: "2.22.0"     # cibuildwheel version
+    nim-version: "2.2.10"     # Nim version to install
+    cibw-version: "4.2.0"     # cibuildwheel version
 ```
 
 ## Project Structure

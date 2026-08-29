@@ -211,11 +211,12 @@ def create_readme(path: Path, project_name: str, module_name: str) -> None:
         )
 
 
-def create_github_actions(path: Path) -> None:
+def create_github_actions(path: Path, module_name: str) -> None:
     """Create GitHub Actions workflow directory and file.
 
     Args:
         path: Project path
+        module_name: Importable Python module name
     """
 
     workflows_dir = path / ".github" / "workflows"
@@ -224,4 +225,6 @@ def create_github_actions(path: Path) -> None:
     workflow_file = workflows_dir / "publish.yml"
     if not workflow_file.exists():
         print("📄 Creating .github/workflows/publish.yml")
-        workflow_file.write_text(GITHUB_ACTIONS_PUBLISH_YML, encoding="utf-8")
+        workflow_file.write_text(
+            GITHUB_ACTIONS_PUBLISH_YML.replace("NUWA_MODULE_NAME", module_name), encoding="utf-8"
+        )

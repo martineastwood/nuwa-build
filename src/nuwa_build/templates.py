@@ -366,6 +366,7 @@ jobs:
       PYTHONUTF8: 1
       CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-* cp313-* cp314-*"
       CIBW_SKIP: "pp* *-musllinux_* *i686 *-win32"
+      CIBW_TEST_COMMAND: 'python -c "import NUWA_MODULE_NAME"'
 
     steps:
       - uses: actions/checkout@v4
@@ -373,7 +374,8 @@ jobs:
       - name: Build wheels
         uses: martineastwood/nuwa-build-action@v1
         with:
-          nim-version: "2.2.0"
+          nim-version: "2.2.10"
+          cibw-version: "4.2.0"
 
       - uses: actions/upload-artifact@v4
         with:
