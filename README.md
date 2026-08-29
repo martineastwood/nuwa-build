@@ -91,11 +91,11 @@ pytest
 
 ### 🤖 AI-Assisted Development
 
-This project includes a `skill.md` file designed to teach AI coding agents (Claude Code, Antigravity, Copilot, etc.) how to work with Nuwa Build.
+This project includes a [Nuwa Build agent skill](skills/SKILL.md) that teaches compatible AI coding agents how to work with Nuwa Build.
 
 **Why use it?**
 
-Standard LLMs often assume Python extensions require `setup.py` or `pip install -e .`. The `skill.md` file provides your agent with the correct context to:
+Standard LLMs often assume Python extensions require `setup.py` or `pip install -e .`. The skill provides the correct context to:
 
 - **Understand the flat layout:** Knows that `.so` files are generated directly in the package directory.
 - **Use correct commands:** Enforces `nuwa develop` and `nuwa watch` instead of standard pip commands.
@@ -103,10 +103,7 @@ Standard LLMs often assume Python extensions require `setup.py` or `pip install 
 
 **How to use:**
 
-1. **Claude Code:** Copy the `skill.md` file into `~/.claude/skills/nuwa-build/` for global use or `<workspace-root>/.claude/skills/nuwa-build/` for project-specific use.
-2. **Antigravity:** Copy the `skill.md` file into `~/.gemini/antigravity/skills/nuwa-build/` for global use or `<workspace-root>/.agent/skills/nuwa-build/` for project-specific use.
-3. **Cursor:** Copy the `skill.md` file into `~/.cursor/skills/nuwa-build/` for global use or `<workspace-root>/.cursor/skills/nuwa-build/` for project-specific use.
-4. **General Chat:** Upload or paste `skill.md` into your context window when starting a new session.
+Create a `nuwa-build` directory in the skill location supported by your coding agent and copy [skills/SKILL.md](skills/SKILL.md) into it. If the agent does not support skills, provide that file as project instructions or conversation context.
 
 ### Watch Mode
 
@@ -237,7 +234,7 @@ pip install dist/*.whl
 pip install . --no-build-isolation
 
 # Build source distribution
-python -m build
+python -m build --sdist
 ```
 
 ## Continuous Integration with GitHub Actions
@@ -250,7 +247,9 @@ The workflow uses a custom composite action (`martineastwood/nuwa-build-action@v
 
 - **Platforms**: Linux (manylinux), macOS, Windows
 - **Python versions**: 3.10, 3.11, 3.12, 3.13, 3.14
-- **Architectures**: x86_64, arm64 (Apple Silicon)
+- **Architectures**: The native architecture of each selected GitHub-hosted runner
+
+Each wheel is installed into cibuildwheel's test environment and checked with an import of the configured Python module. The generated matrix covers regular CPython builds; free-threaded builds are intentionally excluded until they are verified with Nimpy.
 
 ### How It Works
 
@@ -260,7 +259,7 @@ The custom action handles platform-specific Nim compiler installation:
 |----------|-------------------|
 | **Linux** | Installs Nim in Docker container via tar.xz |
 | **Windows** | Uses Chocolatey (`choco install nim`) |
-| **macOS** | Uses choosenim installer |
+| **macOS** | Downloads and checksum-verifies the official Nim archive |
 
 ### First-Time Setup
 
@@ -385,12 +384,13 @@ nim-flags = ["-d:release", "--opt:size"]
 | `output-location`            | string  | `"auto"`                  | Where to place compiled extension (`"auto"`, `"src"`, or path) |
 | `nim-flags`                  | list    | `[]`                      | Additional compiler flags                                      |
 | `nimble-deps`                | list    | `[]`                      | Nimble packages to auto-install before build                   |
+| `bindings`                   | string  | `"nimpy"`                 | Python binding framework                                       |
 | `windows-static-linking`     | boolean | `true`                    | Statically link MinGW runtimes on Windows                      |
 | `bundle-adjacent-dlls`       | boolean | `true`                    | Bundle DLLs found next to the compiled extension               |
 | `allow-manifest-binaries`    | boolean | `false`                   | Allow MANIFEST.in to include compiled binaries                |
 | `profiles`                   | table   | `{}`                      | Predefined build profiles with preset compiler flags           |
 
-**Note**: The entry point filename determines the Python module name of the compiled extension. If your entry point is `my_package_lib.nim`, the module will be importable as `my_package_lib`.
+**Note**: `lib-name` determines the compiled extension filename. With Nimpy, keep the `entry-point` basename aligned with `lib-name` (the generated default does this) so the extension's Python initialization symbol matches its filename.
 
 **Windows note**: By default, MinGW runtime libraries are linked statically on Windows, so wheels don’t depend on `libgcc_s_seh-1.dll`, `libstdc++-6.dll`, or `libwinpthread-1.dll`. Set `windows-static-linking = false` only if you intend to manage these dependencies outside the wheel.
 
@@ -425,7 +425,7 @@ nuwa watch --profile bench
 
 ### Shell Completion
 
-Nuwa supports shell completion for bash, zsh, and fish via the `shtab` library.
+Nuwa supports shell completion for bash, zsh, and tcsh via the `shtab` library.
 
 **Installation:**
 ```bash
@@ -435,7 +435,7 @@ pip install shtab
 # Generate and install completions
 nuwa --print-completion bash > ~/.local/share/bash-completion/completions/nuwa
 nuwa --print-completion zsh > ~/.zfunc/_nuwa
-nuwa --print-completion fish > ~/.config/fish/completions/nuwa.fish
+nuwa --print-completion tcsh > ~/.nuwa-completion.tcsh
 ```
 
 **For zsh users**, add to your `~/.zshrc`:
@@ -581,6 +581,8 @@ nuwa develop --nim-flag="-d:danger" --nim-flag="--opt:size"
 ### `nuwa watch`
 
 Watch for file changes and automatically recompile:
+
+Install the optional watcher first with `pip install "nuwa-build[watch]"`.
 
 ```bash
 # Watch for changes and auto-recompile

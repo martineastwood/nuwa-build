@@ -4,6 +4,8 @@ Thank you for your interest in contributing to Nuwa Build! This document provide
 
 ## Development Setup
 
+Nuwa Build requires Python 3.10 or newer. Integration tests additionally require Nim and Nimble.
+
 ### 1. Fork and Clone
 
 ```bash
@@ -97,7 +99,7 @@ nuwa develop --profile dev
 # Build a distribution wheel
 nuwa build
 
-# Watch mode for development
+# Watch mode for development (the test extra installs watchdog)
 nuwa watch
 nuwa watch --run-tests  # Rebuild and run tests
 nuwa watch --profile bench  # Use custom build profile
@@ -250,7 +252,7 @@ Profile flags are appended to any base `nim-flags` in the config, and CLI `--nim
 
 ## Shell Completion
 
-Nuwa supports shell completion for bash, zsh, and fish via the `shtab` library:
+Nuwa supports shell completion for bash, zsh, and tcsh via the `shtab` library:
 
 ```bash
 # Install shtab (dev dependency)
@@ -259,7 +261,7 @@ pip install shtab
 # Generate and install completions
 nuwa --print-completion bash > ~/.local/share/bash-completion/completions/nuwa
 nuwa --print-completion zsh > ~/.zfunc/_nuwa
-nuwa --print-completion fish > ~/.config/fish/completions/nuwa.fish
+nuwa --print-completion tcsh > ~/.nuwa-completion.tcsh
 ```
 
 Completions work automatically for all commands, flags, and will suggest files/directories where appropriate.
@@ -269,8 +271,8 @@ Completions work automatically for all commands, flags, and will suggest files/d
 ```
 nuwa-build/
 ├── src/nuwa_build/       # Main package
-│   ├── __init__.py       # Exposes PEP 517 build hooks
-│   ├── backend.py        # Legacy backend (most logic moved to pep517_hooks)
+│   ├── __init__.py       # Exposes the PEP 517 build hooks
+│   ├── backend.py        # Nim compilation orchestration
 │   ├── cli.py            # Command-line interface
 │   ├── config.py         # Configuration parsing
 │   ├── discovery.py      # Source file discovery and validation
@@ -283,7 +285,6 @@ nuwa-build/
 │   ├── scaffolding.py    # Project scaffolding (nuwa new/init)
 │   ├── cleanup.py        # Build artifact cleanup
 │   ├── magic.py          # Jupyter notebook magic command
-│   └── constants.py      # Compile-time constants
 ├── tests/
 │   ├── unit/             # Fast tests (no Nim needed)
 │   ├── integration/      # Full workflow tests (requires Nim)

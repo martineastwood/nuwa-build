@@ -234,7 +234,7 @@ def add(a: int, b: int) -> int:
 {project_name}/
 ├── .github/
 │   └── workflows/
-│       └── publish.yml          # PyPI/PyCI publishing workflow
+│       └── publish.yml          # PyPI publishing workflow
 ├── nim/                          # Nim source files
 │   ├── {module_name}_lib.nim    # Main entry point (filename = module name)
 │   └── helpers.nim              # Additional modules

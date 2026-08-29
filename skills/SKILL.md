@@ -15,7 +15,7 @@ You are an expert in using `nuwa-build` ("The Maturin for Nim") - a zero-configu
 Before working with nuwa-build, verify the environment:
 
 1. **Nim**: `nim --version` - Install from https://nim-lang.org/install.html
-2. **Nuwa**: `nuwa --help` - Install via `pip install nuwa-build`
+2. **Nuwa**: `nuwa --help` - Install via `pip install nuwa-build` (Python 3.10+)
 3. **Dependencies**: Add to `nimble-deps`: `nimpy` and `nuwa_sdk` (auto-installed before build)
 
 ## Project Structure
@@ -38,15 +38,16 @@ project_root/
 
 | Command | Purpose |
 |---------|---------|
-| `nuwa new <name>` | Create new project (use `--name` for projects with hyphens) |
+| `nuwa new <path>` | Create a project (`--name` optionally sets its distribution name) |
 | `nuwa init [path]` | Add Nuwa to existing project (non-destructive) |
 | `nuwa develop` | Compile debug build in-place |
 | `nuwa develop -r` | Compile release build |
 | `nuwa build` | Create wheel in `dist/` for distribution |
-| `nuwa watch` | Auto-recompile on file changes |
+| `nuwa watch` | Auto-recompile on file changes (requires the `watch` extra) |
 | `nuwa watch -t` | Recompile and run pytest |
-| `nuwa clean` | Remove build artifacts |
-| `nuwa clean --deps` | Also remove Nimble dependencies |
+| `nuwa clean` | Remove build artifacts and local Nimble dependencies |
+| `nuwa clean --deps` | Remove only local Nimble dependencies |
+| `nuwa clean --artifacts` | Remove only build artifacts |
 
 **CLI overrides** (all build commands support these):
 - `--module-name <name>` - Override Python module name
@@ -168,7 +169,11 @@ When helping users with nuwa-build:
 
 ## Optional Features
 
-**Shell Completion**: Requires `pip install shtab`, then run `nuwa --print-completion bash|zsh|fish`
+**Watch mode**: Install with `pip install "nuwa-build[watch]"`.
+
+**Notebook magics**: Install with `pip install "nuwa-build[notebook]"`.
+
+**Shell Completion**: Requires `pip install shtab`, then run `nuwa --print-completion bash|zsh|tcsh`
 
 **Version-specific dependencies**: `nimble-deps = ["nimpy", "cligen@>=1.0.0", "arraymancer@#head"]`
 
