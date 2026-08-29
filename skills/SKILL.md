@@ -16,7 +16,7 @@ Before working with nuwa-build, verify the environment:
 
 1. **Nim**: `nim --version` - Install from https://nim-lang.org/install.html
 2. **Nuwa**: `nuwa --help` - Install via `pip install nuwa-build` (Python 3.10+)
-3. **Dependencies**: Add to `nimble-deps`: `nimpy@0.2.1` and `nuwa_sdk@0.4.3` (auto-installed before build)
+3. **Dependencies**: Add to `nimble-deps`: `nimpy@0.2.1` and `nuwa_sdk@0.4.4` (auto-installed before build)
 
 ## Project Structure
 
@@ -69,7 +69,7 @@ lib-name = "my_package_lib"     # Compiled extension name
 entry-point = "my_lib.nim"      # Entry file (auto-discovered if not set)
 output-location = "auto"        # "auto", "src", or custom path
 nim-flags = []                  # Additional compiler flags
-nimble-deps = ["nimpy@0.2.1", "nuwa_sdk@0.4.3"]  # Auto-installed dependencies
+nimble-deps = ["nimpy@0.2.1", "nuwa_sdk@0.4.4"]  # Auto-installed dependencies
 bindings = "nimpy"              # Python bindings framework
 
 # Build profiles - predefined compiler flag sets
@@ -98,7 +98,7 @@ Auto-discovery priority order:
 
 ## Writing Nim for Python
 
-**Dependencies**: Add to `nimble-deps`: `["nimpy@0.2.1", "nuwa_sdk@0.4.3"]`
+**Dependencies**: Add to `nimble-deps`: `["nimpy@0.2.1", "nuwa_sdk@0.4.4"]`
 
 ```nim
 import nuwa_sdk  # Required for {.nuwa_export.} pragma and type stubs
