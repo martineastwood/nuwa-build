@@ -1,7 +1,7 @@
 """Configuration management for Nuwa Build."""
 
 import sys
-from typing import Any, Optional
+from typing import Any
 
 from .utils import (
     DEFAULT_NIM_SOURCE_DIR,
@@ -69,7 +69,7 @@ def _validate_config_fields(config: dict[str, Any]) -> None:
         raise ValueError("nim_source cannot be empty")
 
 
-def parse_nuwa_config(profile: Optional[str] = None) -> dict[str, Any]:
+def parse_nuwa_config(profile: str | None = None) -> dict[str, Any]:
     """Parse Nuwa configuration from pyproject.toml with defaults.
 
     Reads [tool.nuwa] section from pyproject.toml and merges with defaults.
@@ -137,7 +137,7 @@ def parse_nuwa_config(profile: Optional[str] = None) -> dict[str, Any]:
     return config
 
 
-def build_config_overrides(**kwargs: Optional[Any]) -> dict[str, Any]:
+def build_config_overrides(**kwargs: Any | None) -> dict[str, Any]:
     """Build a config overrides dictionary from keyword arguments.
 
     Filters out None values, returning only the actual overrides.

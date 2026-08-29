@@ -36,13 +36,13 @@ pip install "nuwa-build[notebook]"  # Jupyter/IPython magics
 
 **Requirements**:
 
-- CPython 3.9+ (regular builds through Python 3.14 are covered by the generated release workflow)
+- CPython 3.10+ (regular builds through Python 3.14 are covered by the generated release workflow)
 - Nim compiler (must be installed and available in your PATH)
 - nimpy library (install via `nimble install nimpy`)
 
 **Python Version Support**:
 
-Nuwa Build supports regular CPython builds from 3.9 onwards. The generated release workflow currently builds and tests CPython 3.9 through 3.14. Free-threaded (`cp314t`) builds are not yet part of the tested support matrix.
+Nuwa Build supports regular CPython builds from 3.10 onwards. The generated release workflow currently builds and tests CPython 3.10 through 3.14. Free-threaded (`cp314t`) builds are not yet part of the tested support matrix.
 
 ## Quick Start
 
@@ -249,7 +249,7 @@ The `nuwa new` template includes a pre-configured GitHub Actions workflow (`.git
 The workflow uses a custom composite action (`martineastwood/nuwa-build-action@v1`) that integrates with [cibuildwheel](https://github.com/pypa/cibuildwheel) to build wheels across:
 
 - **Platforms**: Linux (manylinux), macOS, Windows
-- **Python versions**: 3.9, 3.10, 3.11, 3.12, 3.13, 3.14
+- **Python versions**: 3.10, 3.11, 3.12, 3.13, 3.14
 - **Architectures**: x86_64, arm64 (Apple Silicon)
 
 ### How It Works

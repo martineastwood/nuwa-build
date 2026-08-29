@@ -3,7 +3,6 @@
 import re
 import subprocess
 from pathlib import Path
-from typing import Optional
 
 
 def format_error(error: Exception) -> str:
@@ -32,7 +31,7 @@ def format_error(error: Exception) -> str:
         return f"❌ Unexpected Error ({error_type}): {error}"
 
 
-def parse_nim_error(stderr: str) -> Optional[dict]:
+def parse_nim_error(stderr: str) -> dict | None:
     """Parse a Nim compiler error into structured format.
 
     Args:
@@ -97,7 +96,7 @@ def get_error_context(
         return [], 0
 
 
-def format_compilation_error(stderr: str, working_dir: Optional[Path] = None) -> str:
+def format_compilation_error(stderr: str, working_dir: Path | None = None) -> str:
     """Format Nim compiler error with context.
 
     Args:

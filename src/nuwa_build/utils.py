@@ -10,7 +10,6 @@ import sysconfig
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Optional
 
 from packaging.tags import sys_tags
 
@@ -173,7 +172,7 @@ def check_nimble_installed() -> bool:
     return shutil.which("nimble") is not None
 
 
-def install_nimble_dependencies(deps: list, local_dir: Optional[Path] = None) -> None:
+def install_nimble_dependencies(deps: list, local_dir: Path | None = None) -> None:
     """Install nimble dependencies.
 
     Args:

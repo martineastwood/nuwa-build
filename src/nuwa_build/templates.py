@@ -9,7 +9,7 @@ name = "{project_name}"
 version = "0.1.0"
 description = "A Nim extension for Python"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = []
 
 [tool.nuwa]
@@ -337,7 +337,7 @@ The workflow uses [cibuildwheel](https://github.com/pypa/cibuildwheel) to build 
 
 The workflow will automatically:
 - Build wheels for Linux, macOS, and Windows
-- Support Python 3.9, 3.10, 3.11, 3.12, 3.13, 3.14
+- Support Python 3.10, 3.11, 3.12, 3.13, 3.14
 - Build a source distribution
 - Publish everything to PyPI
 """
@@ -364,7 +364,7 @@ jobs:
 
     env:
       PYTHONUTF8: 1
-      CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-* cp313-* cp314-*"
+      CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-* cp314-*"
       CIBW_SKIP: "pp* *-musllinux_* *i686 *-win32"
       CIBW_TEST_COMMAND: 'python -c "import NUWA_MODULE_NAME"'
 

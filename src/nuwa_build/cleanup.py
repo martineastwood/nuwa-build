@@ -2,7 +2,6 @@
 
 import shutil
 from pathlib import Path
-from typing import Optional
 
 from .config import parse_nuwa_config
 from .utils import get_platform_extension
@@ -73,7 +72,7 @@ def _safe_remove_file(path: Path, project_root: Path) -> tuple[list[str], list[s
 
 
 def clean_directories(
-    directories: list[str], project_root: Optional[Path] = None
+    directories: list[str], project_root: Path | None = None
 ) -> tuple[list[str], list[str]]:
     """Clean specified directories from project root.
 
@@ -99,7 +98,7 @@ def clean_directories(
     return all_cleaned, all_errors
 
 
-def clean_compiled_extensions(project_root: Optional[Path] = None) -> tuple[list[str], list[str]]:
+def clean_compiled_extensions(project_root: Path | None = None) -> tuple[list[str], list[str]]:
     """Clean compiled extension files from Nuwa-managed locations.
 
     Removes platform-specific compiled extensions (e.g., .so, .pyd, or
@@ -150,7 +149,7 @@ def clean_compiled_extensions(project_root: Optional[Path] = None) -> tuple[list
     return cleaned, errors
 
 
-def clean_dependencies(project_root: Optional[Path] = None) -> tuple[list[str], list[str]]:
+def clean_dependencies(project_root: Path | None = None) -> tuple[list[str], list[str]]:
     """Clean all dependencies (.nimble/).
 
     Args:
@@ -162,7 +161,7 @@ def clean_dependencies(project_root: Optional[Path] = None) -> tuple[list[str], 
     return clean_directories([".nimble"], project_root)
 
 
-def clean_artifacts(project_root: Optional[Path] = None) -> tuple[list[str], list[str]]:
+def clean_artifacts(project_root: Path | None = None) -> tuple[list[str], list[str]]:
     """Clean all build artifacts (nimcache/, .nuwacache/, build/, dist/, compiled extensions).
 
     Args:
@@ -188,7 +187,7 @@ def clean_artifacts(project_root: Optional[Path] = None) -> tuple[list[str], lis
     return all_cleaned, all_errors
 
 
-def clean_all(project_root: Optional[Path] = None) -> tuple[list[str], list[str]]:
+def clean_all(project_root: Path | None = None) -> tuple[list[str], list[str]]:
     """Clean all dependencies and artifacts.
 
     Args:

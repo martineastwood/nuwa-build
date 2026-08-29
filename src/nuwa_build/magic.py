@@ -8,7 +8,6 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional
 
 from IPython import get_ipython  # type: ignore[import-not-found]
 from IPython.core.magic import (  # type: ignore[import-not-found]
@@ -69,7 +68,7 @@ class NuwaMagics(Magics):
             return []
         return line.strip().split()
 
-    def _find_cached_extension(self, cache_path: Path, module_name: str) -> Optional[Path]:
+    def _find_cached_extension(self, cache_path: Path, module_name: str) -> Path | None:
         """Find compiled extension in cache directory.
 
         Args:
@@ -122,7 +121,7 @@ entry-point = "{module_name}_lib.nim"
         nim_code: str,
         module_name: str,
         cache_dir: Path,
-        nim_flags: Optional[list[str]] = None,
+        nim_flags: list[str] | None = None,
     ) -> Path:
         """Compile Nim code from string using cache directory.
 

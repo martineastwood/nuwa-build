@@ -4,7 +4,6 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional
 
 # Configure UTF-8 encoding for Windows compatibility
 if sys.platform == "win32":
@@ -98,8 +97,8 @@ def _build_nim_command(
     build_type: str,
     nim_flags: list,
     nim_dir: Path,
-    nimble_path: Optional[Path] = None,
-    stub_dir: Optional[Path] = None,
+    nimble_path: Path | None = None,
+    stub_dir: Path | None = None,
 ) -> list[str]:
     """Build the Nim compiler command.
 
@@ -203,9 +202,9 @@ def _run_compilation(
 def _compile_nim(
     build_type: str = "release",
     inplace: bool = False,
-    config_overrides: Optional[dict] = None,
-    entry_point_content: Optional[str] = None,
-    nim_dir_override: Optional[Path] = None,
+    config_overrides: dict | None = None,
+    entry_point_content: str | None = None,
+    nim_dir_override: Path | None = None,
     skip_nimble_deps: bool = False,
 ) -> Path:
     """Compile the Nim extension.

@@ -8,7 +8,7 @@ import shutil
 from dataclasses import dataclass, field
 from fnmatch import fnmatch
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from pyproject_metadata import StandardMetadata
 from wheel.wheelfile import WheelFile
@@ -450,8 +450,8 @@ def _cleanup_build_artifacts(so_file: Path, lib_name: str) -> None:
 
 def build_wheel(
     wheel_directory: str,
-    config_settings: Optional[dict] = None,
-    metadata_directory: Optional[str] = None,  # noqa: ARG001
+    config_settings: dict | None = None,
+    metadata_directory: str | None = None,  # noqa: ARG001
 ) -> str:
     """Build a standard wheel with valid RECORD and permissions.
 
@@ -529,7 +529,7 @@ def build_wheel(
 
 def build_sdist(
     sdist_directory: str,
-    config_settings: Optional[dict] = None,  # noqa: ARG001
+    config_settings: dict | None = None,  # noqa: ARG001
 ) -> str:
     """Build a source distribution.
 
@@ -658,8 +658,8 @@ def _copy_dir(
 
 def build_editable(
     wheel_directory: str,
-    config_settings: Optional[dict] = None,  # noqa: ARG001
-    metadata_directory: Optional[str] = None,  # noqa: ARG001
+    config_settings: dict | None = None,  # noqa: ARG001
+    metadata_directory: str | None = None,  # noqa: ARG001
 ) -> str:
     """Build an editable wheel (pip install -e .).
 
@@ -708,21 +708,21 @@ def build_editable(
 
 # Boilerplate required hooks
 def get_requires_for_build_wheel(
-    config_settings: Optional[dict] = None,  # noqa: ARG001
+    config_settings: dict | None = None,  # noqa: ARG001
 ) -> list:
     """Return build requirements for wheels."""
     return []
 
 
 def get_requires_for_build_sdist(
-    config_settings: Optional[dict] = None,  # noqa: ARG001
+    config_settings: dict | None = None,  # noqa: ARG001
 ) -> list:
     """Return build requirements for source distributions."""
     return []
 
 
 def get_requires_for_build_editable(
-    config_settings: Optional[dict] = None,  # noqa: ARG001
+    config_settings: dict | None = None,  # noqa: ARG001
 ) -> list:
     """Return build requirements for editable installs."""
     return []
