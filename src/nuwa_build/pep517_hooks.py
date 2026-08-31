@@ -393,6 +393,11 @@ def _add_type_stubs(
     pyi_file = so_file.parent / f"{lib_name}.pyi"
     if pyi_file.exists():
         arcname = f"{name_normalized}/{lib_name}.pyi"
+        # A checked-in/generated stub inside the Python package is normally
+        # included by _add_python_package_files already.  Writing it again
+        # creates a duplicate ZIP member and emits a warning from zipfile.
+        if arcname in wf.namelist():
+            return
         wf.write(str(pyi_file), arcname=arcname)
 
 

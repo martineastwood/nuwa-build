@@ -10,6 +10,7 @@ from nuwa_build.pep517_hooks import (
     _add_compiled_extension,
     _add_files_from_manifest,
     _add_python_package_files,
+    _add_type_stubs,
     _build_core_metadata,
     _get_package_dir,
     _parse_manifest,
@@ -136,6 +137,28 @@ def test_package_dir_uses_module_name_and_src_layout(tmp_path: Path, monkeypatch
     assert "import_name/__init__.py" in names
     assert "import_name/data.json" in names
     assert not any(name.startswith("src/") for name in names)
+
+
+def test_checked_in_type_stub_is_added_only_once(tmp_path: Path):
+    """Explicit stub packaging must not duplicate a package-data entry."""
+    package_dir = tmp_path / "my_pkg"
+    package_dir.mkdir()
+    so_file = package_dir / "my_pkg_lib.so"
+    so_file.write_bytes(b"extension")
+    (package_dir / "my_pkg_lib.pyi").write_text("def version() -> str: ...\n", encoding="utf-8")
+
+    wheel_path = tmp_path / "my_pkg-0.0.0-py3-none-any.whl"
+    with WheelFile(wheel_path, "w") as wf:
+        _add_python_package_files(
+            wf,
+            package_dir=package_dir,
+            package_arcname="my_pkg",
+            allow_manifest_binaries=False,
+        )
+        _add_type_stubs(wf, so_file, "my_pkg", "my_pkg_lib")
+
+    with ZipFile(wheel_path) as zf:
+        assert zf.namelist().count("my_pkg/my_pkg_lib.pyi") == 1
 
 
 def test_core_metadata_preserves_pep621_fields(tmp_path: Path):
