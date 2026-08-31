@@ -1,5 +1,6 @@
 """Unit tests for PEP 517 hooks helpers."""
 
+import tarfile
 from pathlib import Path
 from zipfile import ZipFile
 
@@ -12,6 +13,7 @@ from nuwa_build.pep517_hooks import (
     _build_core_metadata,
     _get_package_dir,
     _parse_manifest,
+    build_sdist,
 )
 
 
@@ -171,3 +173,41 @@ def test_core_metadata_preserves_pep621_fields(tmp_path: Path):
     assert "Provides-Extra: test" in metadata_text
     assert "# Example package" in metadata_text
     assert entry_points == "[console_scripts]\nexample-cli = import_name.cli:main\n"
+
+
+def test_sdist_contains_pkg_info(tmp_path: Path, monkeypatch):
+    """Source distributions include metadata required by package indexes."""
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "README.md").write_text("# Example package\n", encoding="utf-8")
+    (project / "pyproject.toml").write_text(
+        """\
+[project]
+name = "example-package"
+version = "1.2.3"
+description = "Example package"
+readme = "README.md"
+
+[build-system]
+requires = ["nuwa-build"]
+build-backend = "nuwa_build"
+""",
+        encoding="utf-8",
+    )
+    package = project / "example_package"
+    package.mkdir()
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    output = tmp_path / "dist"
+    output.mkdir()
+    monkeypatch.chdir(project)
+
+    archive_name = build_sdist(str(output))
+
+    with tarfile.open(output / archive_name, "r:gz") as archive:
+        pkg_info = archive.extractfile("example-package-1.2.3/PKG-INFO")
+        assert pkg_info is not None
+        metadata = pkg_info.read().decode("utf-8")
+
+    assert "Name: example-package" in metadata
+    assert "Version: 1.2.3" in metadata
+    assert "Summary: Example package" in metadata

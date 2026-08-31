@@ -612,6 +612,13 @@ def build_sdist(
                 if not should_exclude:
                     shutil.copy2(item, src_dir / item.name)
 
+        # Core metadata is required at the root of a source distribution by
+        # the core metadata specification. Package installers can sometimes
+        # build an archive without it, but repository validation (including
+        # PyPI's checks) correctly rejects such an sdist.
+        metadata_content, _ = _build_core_metadata(load_pyproject_toml(), project_dir=Path.cwd())
+        (src_dir / "PKG-INFO").write_bytes(metadata_content)
+
         # Create the archive from the filtered directory
         shutil.make_archive(
             str(Path(sdist_directory) / base_name), "gztar", root_dir=tmpdir, base_dir=base_name
