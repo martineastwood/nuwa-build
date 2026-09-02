@@ -301,7 +301,7 @@ To customize the build (e.g., different Nim version or cibuildwheel version), ed
 
 ```yaml
 - name: Build wheels
-  uses: martineastwood/nuwa-build-action@v1
+  uses: martineastwood/nuwa-build-action@297c4d536f3e4154431dedac55593a96b6b84df2 # reviewed v1-compatible commit
   with:
     nim-version: "2.2.10"     # Nim version to install
     cibw-version: "4.2.0"     # cibuildwheel version
