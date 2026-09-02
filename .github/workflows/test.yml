@@ -3,128 +3,101 @@ name: Tests
 on:
   push:
     branches: ["main"]
-    paths-ignore:
-      - "docs/**"
-      - "*.md"
-      - "LICENSE"
-      - ".gitignore"
   pull_request:
     branches: ["main"]
-    paths-ignore:
-      - "docs/**"
-      - "*.md"
-      - "LICENSE"
-      - ".gitignore"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
 
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.11"
+      - run: python -m pip install -e ".[dev]"
+      - run: |
+          ruff check src/ tests/
+          ruff format --check src/ tests/
+          mypy src/
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install ruff mypy # Ensuring these are installed
-          pip install -e ".[dev]"
-
-      - name: Run ruff
-        run: |
-          ruff check src/
-          ruff format --check src/
-
-      - name: Run mypy
-        run: mypy src/
-
-  test:
+  unit-tests:
+    name: Python ${{ matrix.python-version }} unit tests
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
-
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: ${{ matrix.python-version }}
-          cache: "pip"
+          cache: pip
+      - run: python -m pip install -e ".[test]"
+      - run: pytest tests/unit/ -v
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[test]"
-
-      - name: Run unit tests (no Nim required)
-        run: |
-          pytest tests/unit/ -v
-
-  test-with-nim:
+  integration:
+    name: Nim integration on ${{ matrix.label }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
-            python-version: "3.11"
-          - os: macos-latest
-            python-version: "3.11"
-          - os: windows-latest
-            python-version: "3.11"
-          - os: ubuntu-latest
-            python-version: "3.14"
-
+          - {label: Linux x86_64, os: ubuntu-latest, python: "3.11"}
+          - {label: Linux ARM64, os: ubuntu-24.04-arm, python: "3.11"}
+          - {label: macOS ARM64, os: macos-14, python: "3.11"}
+          - {label: macOS Intel, os: macos-15-intel, python: "3.11"}
+          - {label: Windows x86_64, os: windows-latest, python: "3.11"}
+          - {label: Python 3.14, os: ubuntu-latest, python: "3.14"}
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
-          python-version: ${{ matrix.python-version }}
-          cache: "pip"
-
-      - name: Install Nim (Linux)
-        if: runner.os == 'Linux'
-        shell: bash
-        run: |
-          curl https://nim-lang.org/choosenim/init.sh -sSf > init.sh
-          sh init.sh -y
-          echo "$HOME/.nimble/bin" >> $GITHUB_PATH
-
-      - name: Install Nim (macOS)
-        if: runner.os == 'macOS'
-        shell: bash
-        run: |
-          brew install nim
-          echo "$HOME/.nimble/bin" >> $GITHUB_PATH
-
-      - name: Install Nim (Windows)
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          choco install nim --version 2.2.10 -y
-          echo "C:\tools\Nim\nim-2.2.10\bin" >> $GITHUB_PATH
-          echo "C:\Users\runneradmin\.nimble\bin" >> $GITHUB_PATH
-
-      - name: Verify Nim installation
-        run: nim --version
-
-      - name: Cache Nimble dependencies
-        uses: actions/cache@v4
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - uses: ./.github/actions/setup-nim
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: .nimble
-          key: ${{ runner.os }}-nimble-${{ hashFiles('**/pyproject.toml') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-nim-2.2.10-${{ hashFiles('**/pyproject.toml') }}
+      - run: python -m pip install -e ".[test]"
+      - run: pytest -v -s
 
-      - name: Install dependencies
+  distributions:
+    name: Installed distributions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.12"
+      - name: Build and check distributions
         run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[test]"
-
-      - name: Run all tests (including integration)
+          python -m pip install build twine
+          python -m build
+          python -m twine check dist/*
+      - name: Test wheel installation
         run: |
-          pytest -v -s
+          python -m venv "$RUNNER_TEMP/wheel-env"
+          "$RUNNER_TEMP/wheel-env/bin/python" -m pip install dist/*.whl
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/wheel-env/bin/nuwa" --help
+      - name: Test sdist installation
+        run: |
+          python -m venv "$RUNNER_TEMP/sdist-env"
+          "$RUNNER_TEMP/sdist-env/bin/python" -m pip install dist/*.tar.gz
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/sdist-env/bin/nuwa" --help
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: nuwa-build-distributions
+          path: dist/*
+          if-no-files-found: error

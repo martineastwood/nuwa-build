@@ -2,56 +2,68 @@ name: Publish to PyPI
 
 on:
   push:
-    tags:
-      - "v*"
-  workflow_dispatch:
+    tags: ["v*"]
 
 permissions:
   contents: read
 
 jobs:
-  build:
-    name: Build distribution
+  build-and-verify:
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          python-version: "3.x"
+          fetch-depth: 0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.12"
 
-      - name: Install build dependencies
+      - name: Verify tag and main ancestry
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          python -m pip install --upgrade pip
-          pip install build
+          git fetch origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+          python - <<'PY'
+          import os
+          import tomllib
 
-      - name: Build package
-        run: python -m build
+          with open("pyproject.toml", "rb") as project_file:
+              version = tomllib.load(project_file)["project"]["version"]
+          expected = f"v{version}"
+          if os.environ["RELEASE_TAG"] != expected:
+              raise SystemExit(f"Expected tag {expected!r}")
+          PY
 
-      - name: Store the distribution packages
-        uses: actions/upload-artifact@v4
+      - name: Build, check, and install distributions
+        run: |
+          python -m pip install build twine
+          python -m build
+          python -m twine check dist/*
+          python -m venv "$RUNNER_TEMP/wheel-env"
+          "$RUNNER_TEMP/wheel-env/bin/python" -m pip install dist/*.whl
+          "$RUNNER_TEMP/wheel-env/bin/nuwa" --help
+          python -m venv "$RUNNER_TEMP/sdist-env"
+          "$RUNNER_TEMP/sdist-env/bin/python" -m pip install dist/*.tar.gz
+          "$RUNNER_TEMP/sdist-env/bin/nuwa" --help
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: python-package-distributions
-          path: dist/
+          path: dist/*
+          if-no-files-found: error
 
-  publish-to-pypi:
-    name: Publish to PyPI
+  publish:
+    needs: build-and-verify
     runs-on: ubuntu-latest
-    needs: build
     environment:
       name: pypi
       url: https://pypi.org/p/nuwa-build
     permissions:
       id-token: write
-
     steps:
-      - name: Download all the dists
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: python-package-distributions
           path: dist/
-
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+      - uses: pypa/gh-action-pypi-publish@a892a5a61159132606e93a2fa6f4358831b04d26 # v1.14.2
