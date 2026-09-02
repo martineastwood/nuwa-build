@@ -10,19 +10,19 @@ Documentation: [https://martineastwood.github.io/nuwa-docs/](https://martineastw
 | --- | --- |
 | CPython 3.10–3.14 | Tested |
 | Linux, macOS, Windows | Native runner architecture |
-| Linux wheels | manylinux x86_64 (official `linux_x64` Nim archive) |
+| Linux wheels | manylinux x86_64/aarch64 on native runners (matching official Nim archive) |
 | Free-threaded (`cp314t`) | Not tested |
 | PyPy | Not tested |
 | musllinux | Skipped (glibc Nim binaries) |
-| Linux aarch64 | Not tested (Action installs x86_64 Nim on Linux) |
+| Linux aarch64 | Tested on `ubuntu-24.04-arm` |
 
 ## Version alignment for this line-up
 
 | Piece | Version to ship |
 | --- | --- |
-| nuwa-build (PyPI) | `0.5.2` (`v0.5.2`) |
+| nuwa-build (PyPI) | `0.5.3` (`v0.5.3`) |
 | nuwa-sdk (Nimble / GitHub) | `0.4.4` (`v0.4.4`) |
-| nuwa-build-action | `v1` on current `main` |
+| nuwa-build-action | current `main`: `297c4d5` (advance `v1` during release) |
 | nuwa-docs | deploy `main` to GitHub Pages |
 | nuwa-example | match template pins (`nuwa_sdk@0.4.4`, Python `>=3.10`) |
 
@@ -30,13 +30,13 @@ Documentation: [https://martineastwood.github.io/nuwa-docs/](https://martineastw
 
 1. **Docs** — Merge nuwa-docs, confirm GitHub Pages is enabled (branch `gh-pages` or the workflow target), open the live site, spot-check the support matrix.
 2. **SDK** — Tag and push `v0.4.4` after merging Nim source changes. Confirm CI is green.
-3. **Action** — Merge CI and README updates. Move the `v1` tag to the new `main` commit:
+3. **Action** — Confirm its five-platform CI. Move the `v1` tag to the reviewed `main` commit:
    `git tag -f v1 && git push origin v1 --force`
-   (consumers pin `@v1`; warn if anyone needs an immutable digest).
+   Update consumers to the resulting immutable commit digest.
 4. **nuwa-build** — Confirm tests/lint on `main`. Changelog date is correct. Tag and push:
-   `git tag v0.5.2 && git push origin v0.5.2`
-   PyPI publish is tag-triggered. Confirm the GitHub Release exists for `v0.5.2` (create one if the workflow does not).
+   `git tag v0.5.3 && git push origin v0.5.3`
+   PyPI publish is tag-triggered. Confirm the GitHub Release exists for `v0.5.3` (create one if the workflow does not).
 5. **Example** — Merge pin and workflow updates. Do not commit `.nimble/` caches.
-6. **Sanity** — On a clean machine: install Nim, `pip install nuwa-build==0.5.2`, `nuwa new demo`, `nuwa develop`, `python example.py`.
+6. **Sanity** — On a clean machine: install Nim, `pip install nuwa-build==0.5.3`, `nuwa new demo`, `nuwa develop`, `python example.py`.
 
 Do not announce the release until step 6 works and the docs page matches the version on PyPI.

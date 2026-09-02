@@ -46,7 +46,7 @@ Python 3.9 is no longer supported. Watch mode and Jupyter magics are optional ex
 ### Documentation
 
 - Document the tested matrix: CPython 3.10–3.14 on Linux/macOS/Windows native architectures.
-- State that free-threaded CPython, PyPy, musllinux, and Linux aarch64 are not tested yet.
+- State that free-threaded CPython, PyPy, and musllinux are not tested; Linux aarch64 is tested through nuwa-build-action.
 
 ## [0.4.3] - 2026-02-14
 

@@ -27,11 +27,11 @@ pip install "nuwa-build[notebook]"  # Jupyter/IPython magics
 | --- | --- |
 | CPython 3.10, 3.11, 3.12, 3.13, 3.14 | Yes |
 | Linux, macOS, Windows | Native architecture of the runner or machine |
-| Linux wheels | manylinux x86_64 |
+| Linux wheels | manylinux x86_64 and aarch64 through nuwa-build-action |
 | Free-threaded CPython (`cp314t`) | No |
 | PyPy | No |
 | musllinux | No (official Nim binaries are glibc) |
-| Linux aarch64 wheels | No (the GitHub Action installs x86_64 Nim on Linux) |
+| Linux aarch64 wheels | Yes, on a native Linux ARM64 runner |
 
 ## Features
 
@@ -257,9 +257,9 @@ The `nuwa new` template includes a pre-configured GitHub Actions workflow (`.git
 
 The workflow uses a custom composite action (`martineastwood/nuwa-build-action@v1`) that integrates with [cibuildwheel](https://github.com/pypa/cibuildwheel) to build wheels across:
 
-- **Platforms**: Linux (manylinux), macOS, Windows
+- **Default generated platforms**: Linux x86_64 (manylinux), macOS on `macos-latest`, and Windows x86_64
 - **Python versions**: 3.10, 3.11, 3.12, 3.13, 3.14
-- **Architectures**: The native architecture of each selected GitHub-hosted runner
+- **Additional tested action targets**: Linux ARM64 and both native macOS architectures; add the corresponding runners to the matrix when required
 
 Each wheel is installed into cibuildwheel's test environment and checked with an import of the configured Python module. The generated matrix covers regular CPython builds; free-threaded builds are intentionally excluded until they are verified with Nimpy.
 
@@ -269,7 +269,7 @@ The custom action handles platform-specific Nim compiler installation:
 
 | Platform | Installation Method |
 |----------|-------------------|
-| **Linux** | Installs Nim in Docker container via tar.xz |
+| **Linux** | Installs the matching x86_64 or ARM64 Nim archive in the Docker container |
 | **Windows** | Uses Chocolatey (`choco install nim`) |
 | **macOS** | Downloads and checksum-verifies the official Nim archive |
 
@@ -291,7 +291,9 @@ The custom action handles platform-specific Nim compiler installation:
 
 ### Manual Workflow Trigger
 
-You can also manually trigger the workflow from the GitHub Actions tab in your repository, useful for testing CI before release.
+The generated workflow currently exposes `workflow_dispatch`. It runs the same
+publication job as a tag, so use it only when you intend to publish and have
+configured the PyPI environment.
 
 ### Customization
 
@@ -678,6 +680,7 @@ from .my_package_lib import *
 
 __version__ = "0.1.0"
 
+
 # Example: Wrap Nim functions with Python code
 def validate_dataframe(df, column_name):
     """Extract pandas data and pass to Nim for zero-copy validation"""
@@ -688,10 +691,7 @@ def validate_dataframe(df, column_name):
     data = df[column_name].to_numpy()
 
     # Get pointer and pass to Nim for validation
-    result = validate_array_raw(
-        data.ctypes.data_as(c_void_p),
-        len(data)
-    )
+    result = validate_array_raw(data.ctypes.data_as(c_void_p), len(data))
     return result
 ```
 
