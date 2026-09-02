@@ -279,9 +279,9 @@ class TestWheelMetadata:
 
         with zipfile.ZipFile(wheel_path, "r") as whl:
             files = whl.namelist()
-            assert any(
-                ".so" in f or ".pyd" in f for f in files
-            ), "Wheel should contain compiled extension"
+            assert any(".so" in f or ".pyd" in f for f in files), (
+                "Wheel should contain compiled extension"
+            )
 
         # Note: .pyi stub files are only created when nuwa_sdk exports are used.
         # The simple fixture uses plain nimpy, so no .pyi file is generated.

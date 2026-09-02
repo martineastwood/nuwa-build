@@ -1,6 +1,5 @@
 """Unit tests for configuration parsing and validation."""
 
-
 from nuwa_build.config import (
     merge_cli_args,
     parse_nuwa_config,
